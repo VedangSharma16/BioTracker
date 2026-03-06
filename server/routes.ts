@@ -50,9 +50,14 @@ export async function registerRoutes(
     }
   });
 
+  // Middleware to ensure user is logged in
   const requireAuth = (req: Request, res: Response, next: NextFunction) => {
     if (req.isAuthenticated()) return next();
-    res.status(401).json({ message: "Unauthorized" });
+    if (req.path.startsWith('/api')) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    // For non-API routes, let them pass through to static/vite handler
+    next();
   };
 
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {

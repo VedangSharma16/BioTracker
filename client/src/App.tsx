@@ -16,16 +16,8 @@ import Alerts from "@/pages/alerts";
 import Prescriptions from "@/pages/prescriptions";
 import { Loader2 } from "lucide-react";
 
-// Protects routes from unauthenticated access
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function Router() {
   const { data: user, isLoading } = useUser();
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      setLocation("/login");
-    }
-  }, [user, isLoading, setLocation]);
 
   if (isLoading) {
     return (
@@ -35,7 +27,9 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return <Login />;
+  }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-background text-foreground w-full">
@@ -43,33 +37,16 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <MobileNav />
         <main className="flex-1 overflow-y-auto">
-          <Component />
+          <Switch>
+            <Route path="/records" component={Records} />
+            <Route path="/alerts" component={Alerts} />
+            <Route path="/prescriptions" component={Prescriptions} />
+            <Route path="/" component={Dashboard} />
+            <Route component={NotFound} />
+          </Switch>
         </main>
       </div>
     </div>
-  );
-}
-
-function Router() {
-  const { data: user, isLoading } = useUser();
-  const [location, setLocation] = useLocation();
-
-  // Redirect authenticated users away from login
-  useEffect(() => {
-    if (!isLoading && user && location === "/login") {
-      setLocation("/");
-    }
-  }, [user, isLoading, location, setLocation]);
-
-  return (
-    <Switch>
-      <Route path="/login" component={Login} />
-      <Route path="/" render={() => <ProtectedRoute component={Dashboard} />} />
-      <Route path="/records" render={() => <ProtectedRoute component={Records} />} />
-      <Route path="/alerts" render={() => <ProtectedRoute component={Alerts} />} />
-      <Route path="/prescriptions" render={() => <ProtectedRoute component={Prescriptions} />} />
-      <Route component={NotFound} />
-    </Switch>
   );
 }
 
