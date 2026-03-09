@@ -7,11 +7,12 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { data: user } = useUser();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
+  const isAdmin = user?.role === "admin";
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "Health Records", href: "/records", icon: FileText },
-    { name: "Prescriptions", href: "/prescriptions", icon: Pill },
+    { name: isAdmin ? "Health Records" : "My Records", href: "/records", icon: FileText },
+    { name: isAdmin ? "Prescriptions" : "My Prescriptions", href: "/prescriptions", icon: Pill },
     { name: "Alerts", href: "/alerts", icon: Bell },
   ];
 
@@ -37,7 +38,7 @@ export function AppSidebar() {
             <div className="flex items-center gap-1.5 mt-0.5">
               <Shield className="w-3 h-3 text-primary" />
               <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">
-                {user?.role}
+                {isAdmin ? "Administrator" : "Patient"}
               </p>
             </div>
           </div>
