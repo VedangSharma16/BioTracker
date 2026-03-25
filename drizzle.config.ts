@@ -1,14 +1,19 @@
+import "./server/load-env";
 import { defineConfig } from "drizzle-kit";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
+const requiredVars = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
+
+for (const variable of requiredVars) {
+  if (!process.env[variable]) {
+    throw new Error(`${variable} must be set in your environment or .env file.`);
+  }
 }
 
 export default defineConfig({
-  out: "./migrations",
+  out: "./drizzle",
   schema: "./shared/schema.ts",
-  dialect: "postgresql",
+  dialect: "mysql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: `mysql://${encodeURIComponent(process.env.DB_USER!)}:${encodeURIComponent(process.env.DB_PASSWORD!)}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
   },
 });

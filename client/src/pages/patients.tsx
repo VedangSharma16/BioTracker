@@ -1,0 +1,303 @@
+import { useEffect, useMemo, useState } from "react";
+import { Redirect } from "wouter";
+import { Pencil, Plus, Search, Trash2, Users } from "lucide-react";
+import { useCreatePatient, useDeletePatient, usePatients, useUpdatePatient } from "@/hooks/use-patients";
+import { useUser } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+
+type PatientFormState = {
+  name: string;
+  age: string;
+  gender: "" | "Male" | "Female" | "Other";
+  phone: string;
+  emergencyContact: string;
+  username: string;
+  password: string;
+};
+
+const emptyForm: PatientFormState = {
+  name: "",
+  age: "",
+  gender: "",
+  phone: "",
+  emergencyContact: "",
+  username: "",
+  password: "",
+};
+
+export default function Patients() {
+  const { data: user } = useUser();
+  const { data: patients, isLoading } = usePatients();
+  const [search, setSearch] = useState("");
+  const isAdmin = user?.role?.toLowerCase() === "admin";
+
+  const filteredPatients = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return patients ?? [];
+
+    return (patients ?? []).filter((patient) =>
+      [patient.name, patient.gender, patient.phone, patient.emergencyContact]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [patients, search]);
+
+  if (!isAdmin) {
+    return <Redirect to="/dashboard" />;
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-7xl p-6 md:p-10">
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-foreground">
+            <Users className="h-8 w-8 text-primary" />
+            Patients
+          </h1>
+          <p className="mt-1 text-muted-foreground">Manage registered patients and their login access.</p>
+        </div>
+        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search patients by name, gender, or phone"
+              className="pl-9"
+            />
+          </div>
+          <PatientDialog mode="create" />
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/80">
+        <Table>
+          <TableHeader className="bg-white/5">
+            <TableRow className="border-white/10">
+              <TableHead>Name</TableHead>
+              <TableHead>Age</TableHead>
+              <TableHead>Gender</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Emergency Contact</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Loading patients...</TableCell>
+              </TableRow>
+            ) : filteredPatients.length ? (
+              filteredPatients.map((patient) => (
+                <TableRow key={patient.patientId} className="border-white/5">
+                  <TableCell className="font-medium">{patient.name}</TableCell>
+                  <TableCell>{patient.age}</TableCell>
+                  <TableCell>{patient.gender}</TableCell>
+                  <TableCell>{patient.phone || "-"}</TableCell>
+                  <TableCell>{patient.emergencyContact || "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <PatientDialog mode="edit" patient={patient} />
+                      <DeletePatientButton patientId={patient.patientId} patientName={patient.name} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  No patients matched your search.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function PatientDialog({
+  mode,
+  patient,
+}: {
+  mode: "create" | "edit";
+  patient?: {
+    patientId: number;
+    name: string;
+    age: number;
+    gender: string;
+    phone: string | null;
+    emergencyContact: string | null;
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<PatientFormState>(emptyForm);
+  const { mutate: createPatient, isPending: creating } = useCreatePatient();
+  const { mutate: updatePatient, isPending: updating } = useUpdatePatient();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (mode === "edit" && patient) {
+      setForm({
+        name: patient.name,
+        age: String(patient.age),
+        gender: patient.gender as PatientFormState["gender"],
+        phone: patient.phone ?? "",
+        emergencyContact: patient.emergencyContact ?? "",
+        username: "",
+        password: "",
+      });
+      return;
+    }
+
+    setForm(emptyForm);
+  }, [mode, open, patient]);
+
+  const isPending = creating || updating;
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!form.gender) {
+      toast({ title: "Error", description: "Please select a gender.", variant: "destructive" });
+      return;
+    }
+
+    const payload = {
+      name: form.name,
+      age: Number(form.age),
+      gender: form.gender,
+      phone: form.phone || undefined,
+      emergencyContact: form.emergencyContact || undefined,
+    };
+
+    if (mode === "create") {
+      createPatient(
+        {
+          ...payload,
+          username: form.username || undefined,
+          password: form.password || undefined,
+        },
+        {
+          onSuccess: () => {
+            setOpen(false);
+            setForm(emptyForm);
+            toast({ title: "Success", description: "Patient created." });
+          },
+          onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+        },
+      );
+      return;
+    }
+
+    if (!patient) return;
+
+    updatePatient(
+      {
+        patientId: patient.patientId,
+        ...payload,
+      },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          toast({ title: "Success", description: "Patient updated." });
+        },
+        onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {mode === "create" ? (
+          <Button><Plus className="mr-2 h-4 w-4" />Add Patient</Button>
+        ) : (
+          <Button variant="outline" size="sm"><Pencil className="mr-2 h-4 w-4" />Edit</Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="border-white/10 bg-card">
+        <DialogHeader>
+          <DialogTitle>{mode === "create" ? "Create Patient" : "Edit Patient"}</DialogTitle>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <SimpleField label="Name" value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} />
+          <SimpleField label="Age" value={form.age} onChange={(value) => setForm((current) => ({ ...current, age: value }))} type="number" />
+          <div className="space-y-2">
+            <Label>Gender</Label>
+            <Select value={form.gender} onValueChange={(value) => setForm((current) => ({ ...current, gender: value as PatientFormState["gender"] }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <SimpleField label="Phone" value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value }))} />
+          <SimpleField label="Emergency Contact" value={form.emergencyContact} onChange={(value) => setForm((current) => ({ ...current, emergencyContact: value }))} />
+
+          {mode === "create" ? (
+            <div className="space-y-4 rounded-xl border border-white/10 bg-background/30 p-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Patient Login</p>
+                <p className="text-xs text-muted-foreground">Optional. Leave blank if you do not want to create login credentials now.</p>
+              </div>
+              <SimpleField label="Username" value={form.username} onChange={(value) => setForm((current) => ({ ...current, username: value }))} />
+              <SimpleField label="Password" value={form.password} onChange={(value) => setForm((current) => ({ ...current, password: value }))} type="password" />
+            </div>
+          ) : null}
+
+          <Button type="submit" disabled={isPending} className="w-full">{isPending ? "Saving..." : mode === "create" ? "Save Patient" : "Update Patient"}</Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeletePatientButton({ patientId, patientName }: { patientId: number; patientName: string }) {
+  const { mutate: deletePatient, isPending } = useDeletePatient();
+  const { toast } = useToast();
+
+  const handleDelete = () => {
+    if (!window.confirm(`Delete ${patientName} and all related records? This cannot be undone.`)) {
+      return;
+    }
+
+    deletePatient(patientId, {
+      onSuccess: ({ message }) => {
+        toast({ title: "Success", description: message });
+      },
+      onError: (error) => {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      },
+    });
+  };
+
+  return (
+    <Button variant="destructive" size="sm" disabled={isPending} onClick={handleDelete}>
+      <Trash2 className="mr-2 h-4 w-4" />
+      {isPending ? "Deleting..." : "Delete"}
+    </Button>
+  );
+}
+
+function SimpleField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}

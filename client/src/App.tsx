@@ -11,9 +11,12 @@ import { useUser } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import Doctors from "@/pages/doctors";
+import Patients from "@/pages/patients";
 import Records from "@/pages/records";
 import Alerts from "@/pages/alerts";
 import Prescriptions from "@/pages/prescriptions";
+import Billing from "@/pages/billing";
 import { Loader2 } from "lucide-react";
 
 function Router() {
@@ -38,9 +41,13 @@ function Router() {
         <MobileNav />
         <main className="flex-1 overflow-y-auto">
           <Switch>
+            <Route path="/dashboard" component={Dashboard} />
+            <Route path="/patients" component={Patients} />
+            <Route path="/doctors" component={Doctors} />
             <Route path="/records" component={Records} />
             <Route path="/alerts" component={Alerts} />
             <Route path="/prescriptions" component={Prescriptions} />
+            <Route path="/billing" component={Billing} />
             <Route path="/" component={Dashboard} />
             <Route component={NotFound} />
           </Switch>

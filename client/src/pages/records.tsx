@@ -1,113 +1,128 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { useHealthRecords, useCreateHealthRecord } from "@/hooks/use-records";
+import { Activity, FilePlus, FileText, Pencil, Search } from "lucide-react";
+import { useCreateHealthRecord, useHealthRecords, useUpdateHealthRecord } from "@/hooks/use-records";
 import { usePatients } from "@/hooks/use-patients";
 import { useUser } from "@/hooks/use-auth";
-import { FilePlus, FileText, Activity } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+
+type RecordFormState = {
+  patientId: string;
+  bpSystolic: string;
+  bpDiastolic: string;
+  bloodSugar: string;
+  cholesterol: string;
+  oxygenSaturation: string;
+  bmi: string;
+  notes: string;
+};
+
+const emptyForm: RecordFormState = {
+  patientId: "",
+  bpSystolic: "",
+  bpDiastolic: "",
+  bloodSugar: "",
+  cholesterol: "",
+  oxygenSaturation: "",
+  bmi: "",
+  notes: "",
+};
+
+type HealthRecordRow = NonNullable<ReturnType<typeof useHealthRecords>["data"]>[number];
 
 export default function Records() {
   const { data: records, isLoading } = useHealthRecords();
   const { data: user } = useUser();
-  const isAdmin = user?.role === "admin";
-  
+  const [search, setSearch] = useState("");
+  const isAdmin = user?.role?.toLowerCase() === "admin";
+
+  const filteredRecords = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return records ?? [];
+
+    return (records ?? []).filter((record) =>
+      [record.patientName, record.notes, record.bloodSugar, record.cholesterol, record.bmi, record.oxygenSaturation]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [records, search]);
+
   return (
-    <div className="p-6 md:p-10 max-w-7xl mx-auto w-full">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+    <div className="mx-auto w-full max-w-7xl p-6 md:p-10">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <FileText className="w-8 h-8 text-primary" />
+          <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-foreground">
+            <FileText className="h-8 w-8 text-primary" />
             Health Records
           </h1>
-          <p className="text-muted-foreground mt-1">View and manage patient vital statistics.</p>
+          <p className="mt-1 text-muted-foreground">Detailed vitals, BMI, cholesterol, and oxygen saturation tracking.</p>
         </div>
-        
-        {isAdmin && <AddRecordDialog />}
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search records by patient or metric"
+              className="pl-9"
+            />
+          </div>
+          {isAdmin ? <RecordDialog mode="create" /> : null}
+        </div>
       </div>
 
-      <div className="glass-panel rounded-2xl overflow-hidden border border-white/10">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/80">
         <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="font-semibold text-foreground">Date</TableHead>
-              <TableHead className="font-semibold text-foreground">Patient</TableHead>
-              <TableHead className="font-semibold text-foreground">Blood Pressure</TableHead>
-              <TableHead className="font-semibold text-foreground">Blood Sugar</TableHead>
-              <TableHead className="font-semibold text-foreground max-w-[300px]">Notes</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Patient</TableHead>
+              <TableHead>Blood Sugar</TableHead>
+              <TableHead>Blood Pressure</TableHead>
+              <TableHead>Cholesterol</TableHead>
+              <TableHead>Oxygen</TableHead>
+              <TableHead>BMI</TableHead>
+              <TableHead>Notes</TableHead>
+              {isAdmin ? <TableHead className="text-right">Actions</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                  Loading records...
-                </TableCell>
+                <TableCell colSpan={isAdmin ? 9 : 8} className="py-10 text-center text-muted-foreground">Loading records...</TableCell>
               </TableRow>
-            ) : records?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                  <Activity className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  No health records found
-                </TableCell>
-              </TableRow>
-            ) : (
-              records?.map((record) => (
-                <TableRow key={record.recordId} className="border-white/5 hover:bg-white/5 transition-colors">
-                  <TableCell className="font-medium">
-                    {format(new Date(record.recordDate), "MMM d, yyyy")}
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-foreground">{record.patientName || `ID: ${record.patientId}`}</div>
-                  </TableCell>
-                  <TableCell>
-                    {record.bpSystolic && record.bpDiastolic ? (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20 text-sm font-medium">
-                        {record.bpSystolic}/{record.bpDiastolic}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {record.bloodSugar ? (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-sm font-medium">
-                        {record.bloodSugar} <span className="text-xs ml-1 opacity-70">mg/dL</span>
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[300px] truncate text-muted-foreground">
-                    {record.notes || "—"}
-                  </TableCell>
+            ) : filteredRecords.length ? (
+              filteredRecords.map((record) => (
+                <TableRow key={record.recordId} className="border-white/5 hover:bg-white/5">
+                  <TableCell>{format(new Date(record.recordDate), "MMM d, yyyy")}</TableCell>
+                  <TableCell className="font-medium">{record.patientName}</TableCell>
+                  <TableCell>{record.bloodSugar ?? "-"}</TableCell>
+                  <TableCell>{record.bpSystolic && record.bpDiastolic ? `${record.bpSystolic}/${record.bpDiastolic}` : "-"}</TableCell>
+                  <TableCell>{record.cholesterol ?? "-"}</TableCell>
+                  <TableCell>{record.oxygenSaturation ?? "-"}</TableCell>
+                  <TableCell>{record.bmi ?? "-"}</TableCell>
+                  <TableCell className="max-w-[260px] truncate text-muted-foreground">{record.notes || "-"}</TableCell>
+                  {isAdmin ? (
+                    <TableCell className="text-right">
+                      <RecordDialog mode="edit" record={record} />
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={isAdmin ? 9 : 8} className="py-12 text-center text-muted-foreground">
+                  <Activity className="mx-auto mb-3 h-10 w-10 opacity-20" />
+                  No health records matched your search
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
@@ -116,133 +131,155 @@ export default function Records() {
   );
 }
 
-function AddRecordDialog() {
+function RecordDialog({ mode, record }: { mode: "create" | "edit"; record?: HealthRecordRow }) {
   const [open, setOpen] = useState(false);
   const { data: patients } = usePatients();
-  const { mutate: createRecord, isPending } = useCreateHealthRecord();
+  const { mutate: createRecord, isPending: creating } = useCreateHealthRecord();
+  const { mutate: updateRecord, isPending: updating } = useUpdateHealthRecord();
   const { toast } = useToast();
-  
-  const [formData, setFormData] = useState({
-    patientId: "",
-    bpSystolic: "",
-    bpDiastolic: "",
-    bloodSugar: "",
-    notes: ""
-  });
+  const [formData, setFormData] = useState<RecordFormState>(emptyForm);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.patientId) {
-      toast({ title: "Validation Error", description: "Please select a patient", variant: "destructive" });
+  useEffect(() => {
+    if (!open) return;
+
+    if (mode === "edit" && record) {
+      setFormData({
+        patientId: String(record.patientId),
+        bpSystolic: record.bpSystolic ? String(record.bpSystolic) : "",
+        bpDiastolic: record.bpDiastolic ? String(record.bpDiastolic) : "",
+        bloodSugar: record.bloodSugar ? String(record.bloodSugar) : "",
+        cholesterol: record.cholesterol ? String(record.cholesterol) : "",
+        oxygenSaturation: record.oxygenSaturation ? String(record.oxygenSaturation) : "",
+        bmi: record.bmi ? String(record.bmi) : "",
+        notes: record.notes || "",
+      });
       return;
     }
 
-    createRecord(
-      {
-        patientId: Number(formData.patientId),
-        bpSystolic: formData.bpSystolic ? Number(formData.bpSystolic) : undefined,
-        bpDiastolic: formData.bpDiastolic ? Number(formData.bpDiastolic) : undefined,
-        bloodSugar: formData.bloodSugar ? Number(formData.bloodSugar) : undefined,
-        notes: formData.notes || undefined
-      },
-      {
-        onSuccess: () => {
-          setOpen(false);
-          setFormData({ patientId: "", bpSystolic: "", bpDiastolic: "", bloodSugar: "", notes: "" });
-          toast({ title: "Success", description: "Health record added successfully." });
+    setFormData(emptyForm);
+  }, [mode, open, record]);
+
+  const isPending = creating || updating;
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!formData.patientId) {
+      toast({ title: "Validation error", description: "Please select a patient", variant: "destructive" });
+      return;
+    }
+
+    const payload = {
+      patientId: Number(formData.patientId),
+      bpSystolic: formData.bpSystolic ? Number(formData.bpSystolic) : undefined,
+      bpDiastolic: formData.bpDiastolic ? Number(formData.bpDiastolic) : undefined,
+      bloodSugar: formData.bloodSugar ? Number(formData.bloodSugar) : undefined,
+      cholesterol: formData.cholesterol ? Number(formData.cholesterol) : undefined,
+      oxygenSaturation: formData.oxygenSaturation ? Number(formData.oxygenSaturation) : undefined,
+      bmi: formData.bmi ? Number(formData.bmi) : undefined,
+      notes: formData.notes || undefined,
+    };
+
+    if (mode === "edit" && record) {
+      updateRecord(
+        {
+          recordId: record.recordId,
+          ...payload,
         },
-        onError: (err) => {
-          toast({ title: "Error", description: err.message, variant: "destructive" });
-        }
-      }
-    );
+        {
+          onSuccess: () => {
+            setOpen(false);
+            toast({ title: "Success", description: "Health record updated successfully." });
+          },
+          onError: (error) => {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+          },
+        },
+      );
+      return;
+    }
+
+    createRecord(payload, {
+      onSuccess: () => {
+        setOpen(false);
+        setFormData(emptyForm);
+        toast({ title: "Success", description: "Health record added successfully." });
+      },
+      onError: (error) => {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      },
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/20">
-          <FilePlus className="w-4 h-4 mr-2" />
-          Add Record
-        </Button>
+        {mode === "create" ? (
+          <Button className="font-semibold">
+            <FilePlus className="mr-2 h-4 w-4" />
+            Add Record
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm">
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md bg-card border-white/10">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-white/10 bg-card">
         <DialogHeader>
-          <DialogTitle className="text-xl">Add Health Record</DialogTitle>
+          <DialogTitle>{mode === "create" ? "Add Health Record" : "Edit Health Record"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Patient</Label>
-            <Select 
-              value={formData.patientId} 
-              onValueChange={(val) => setFormData(p => ({ ...p, patientId: val }))}
-            >
-              <SelectTrigger className="bg-background/50 border-white/10 focus:ring-primary/20">
+            <Select value={formData.patientId} onValueChange={(value) => setFormData((current) => ({ ...current, patientId: value }))}>
+              <SelectTrigger>
                 <SelectValue placeholder="Select patient" />
               </SelectTrigger>
-              <SelectContent className="bg-card border-white/10">
-                {patients?.map((p) => (
-                  <SelectItem key={p.patientId} value={p.patientId.toString()}>
-                    {p.name} (ID: {p.patientId})
+              <SelectContent>
+                {patients?.map((patient) => (
+                  <SelectItem key={patient.patientId} value={String(patient.patientId)}>
+                    {patient.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>BP Systolic</Label>
-              <Input 
-                type="number" 
-                placeholder="120"
-                className="bg-background/50 border-white/10 focus:ring-primary/20"
-                value={formData.bpSystolic}
-                onChange={(e) => setFormData(p => ({ ...p, bpSystolic: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>BP Diastolic</Label>
-              <Input 
-                type="number" 
-                placeholder="80"
-                className="bg-background/50 border-white/10 focus:ring-primary/20"
-                value={formData.bpDiastolic}
-                onChange={(e) => setFormData(p => ({ ...p, bpDiastolic: e.target.value }))}
-              />
-            </div>
+            <Field label="BP Systolic" value={formData.bpSystolic} onChange={(value) => setFormData((current) => ({ ...current, bpSystolic: value }))} />
+            <Field label="BP Diastolic" value={formData.bpDiastolic} onChange={(value) => setFormData((current) => ({ ...current, bpDiastolic: value }))} />
+            <Field label="Blood Sugar" value={formData.bloodSugar} onChange={(value) => setFormData((current) => ({ ...current, bloodSugar: value }))} />
+            <Field label="Cholesterol" value={formData.cholesterol} onChange={(value) => setFormData((current) => ({ ...current, cholesterol: value }))} />
+            <Field label="Oxygen Saturation" value={formData.oxygenSaturation} onChange={(value) => setFormData((current) => ({ ...current, oxygenSaturation: value }))} />
+            <Field label="BMI" value={formData.bmi} onChange={(value) => setFormData((current) => ({ ...current, bmi: value }))} />
           </div>
-          
-          <div className="space-y-2">
-            <Label>Blood Sugar (mg/dL)</Label>
-            <Input 
-              type="number" 
-              step="0.1"
-              placeholder="95.5"
-              className="bg-background/50 border-white/10 focus:ring-primary/20"
-              value={formData.bloodSugar}
-              onChange={(e) => setFormData(p => ({ ...p, bloodSugar: e.target.value }))}
-            />
-          </div>
-          
+
           <div className="space-y-2">
             <Label>Notes</Label>
-            <Textarea 
-              placeholder="Any additional observations..."
-              className="bg-background/50 border-white/10 focus:ring-primary/20 resize-none"
+            <Textarea
               rows={3}
               value={formData.notes}
-              onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
+              onChange={(event) => setFormData((current) => ({ ...current, notes: event.target.value }))}
+              placeholder="Any additional notes..."
             />
           </div>
-          
-          <div className="pt-4 flex justify-end">
-            <Button type="submit" disabled={isPending} className="w-full sm:w-auto font-semibold">
-              {isPending ? "Saving..." : "Save Record"}
-            </Button>
-          </div>
+
+          <Button type="submit" disabled={isPending} className="w-full">
+            {isPending ? "Saving..." : mode === "create" ? "Save Record" : "Update Record"}
+          </Button>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input type="number" step="0.1" value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
   );
 }

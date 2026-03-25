@@ -1,0 +1,2 @@
+11:29:57 AM [express] serving on port 5000
+11:30:01 AM [express] GET /api/me 401 in 7ms :: {"message":"Unauthorized"}

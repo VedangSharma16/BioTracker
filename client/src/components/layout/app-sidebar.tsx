@@ -1,30 +1,40 @@
 import { Link, useLocation } from "wouter";
-import { Activity, Bell, FileText, LayoutDashboard, LogOut, Pill, Shield } from "lucide-react";
+import { Bell, CreditCard, FileText, LayoutDashboard, LogOut, Pill, Shield, Stethoscope, Users } from "lucide-react";
 import { useUser, useLogout } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import bioTrackerLogo from "@frontend-assets/logo.png";
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { data: user } = useUser();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role?.toLowerCase() === "admin";
 
   const navigation = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    ...(isAdmin
+      ? [
+          { name: "Patients", href: "/patients", icon: Users },
+          { name: "Doctors", href: "/doctors", icon: Stethoscope },
+        ]
+      : []),
     { name: isAdmin ? "Health Records" : "My Records", href: "/records", icon: FileText },
     { name: isAdmin ? "Prescriptions" : "My Prescriptions", href: "/prescriptions", icon: Pill },
+    { name: isAdmin ? "Billing" : "My Billing", href: "/billing", icon: CreditCard },
     { name: "Alerts", href: "/alerts", icon: Bell },
   ];
 
   return (
     <div className="hidden md:flex flex-col w-72 bg-card border-r border-white/5 h-screen sticky top-0">
       <div className="p-6 flex items-center gap-3">
-        <div className="bg-primary/20 p-2 rounded-xl text-primary">
-          <Activity className="w-6 h-6" />
-        </div>
+        <img
+          src={bioTrackerLogo}
+          alt="BioTracker logo"
+          className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/10"
+        />
         <div>
-          <h1 className="font-bold text-lg leading-tight tracking-tight">HealthTracker</h1>
-          <p className="text-xs text-muted-foreground font-medium">Medical System</p>
+          <h1 className="font-bold text-lg leading-tight tracking-tight">BioTracker</h1>
+          <p className="text-xs text-muted-foreground font-medium">Health Intelligence</p>
         </div>
       </div>
 

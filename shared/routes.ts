@@ -1,18 +1,194 @@
-import { z } from 'zod';
-import { 
-  insertPatientSchema, 
-  insertHealthRecordSchema, 
-  insertPrescriptionSchema,
-  insertMedicineSchema,
-  insertAlertSchema,
-  patients,
-  healthRecords,
-  prescriptions,
+import { z } from "zod";
+import {
   alerts,
-  medicines,
+  bills,
   doctors,
-  users
-} from './schema';
+  healthRecords,
+  insertAlertSchema,
+  insertBillSchema,
+  insertDoctorSchema,
+  insertHealthRecordSchema,
+  insertMedicineSchema,
+  insertPaymentHistorySchema,
+  insertPatientSchema,
+  insertPrescriptionSchema,
+  medicines,
+  paymentHistory,
+  patients,
+  prescriptions,
+  users,
+} from "./schema";
+
+const patientHealthViewSchema = z.object({
+  recordId: z.number(),
+  patientId: z.number(),
+  patientName: z.string(),
+  recordDate: z.coerce.date(),
+  bloodSugar: z.union([z.string(), z.number()]).nullable(),
+  bpSystolic: z.number().nullable(),
+  bpDiastolic: z.number().nullable(),
+  cholesterol: z.union([z.string(), z.number()]).nullable(),
+  oxygenSaturation: z.union([z.string(), z.number()]).nullable(),
+  bmi: z.union([z.string(), z.number()]).nullable(),
+  notes: z.string().nullable(),
+});
+
+const pendingAlertViewSchema = z.object({
+  alertId: z.number(),
+  patientId: z.number(),
+  patientName: z.string(),
+  alertType: z.string(),
+  alertMessage: z.string(),
+  alertDate: z.coerce.date(),
+  status: z.string(),
+});
+
+const patientPrescriptionViewSchema = z.object({
+  prescriptionId: z.number(),
+  patientId: z.number(),
+  patientName: z.string(),
+  doctorId: z.number(),
+  doctorName: z.string(),
+  prescriptionDate: z.coerce.date(),
+});
+
+const medicineViewSchema = z.object({
+  medicineId: z.number(),
+  prescriptionId: z.number(),
+  patientId: z.number(),
+  patientName: z.string(),
+  medicineName: z.string(),
+  dosage: z.string(),
+  frequency: z.string(),
+  refillIntervalDays: z.number().nullable(),
+});
+
+const billViewSchema = z.object({
+  billId: z.number(),
+  billNumber: z.string(),
+  patientId: z.number(),
+  patientName: z.string(),
+  doctorId: z.number().nullable(),
+  doctorName: z.string().nullable(),
+  prescriptionId: z.number().nullable(),
+  billingDate: z.coerce.date(),
+  dueDate: z.coerce.date().nullable(),
+  subtotal: z.union([z.string(), z.number()]),
+  taxAmount: z.union([z.string(), z.number()]),
+  discountAmount: z.union([z.string(), z.number()]),
+  totalAmount: z.union([z.string(), z.number()]),
+  paidAmount: z.union([z.string(), z.number()]),
+  balanceAmount: z.union([z.string(), z.number()]),
+  paymentStatus: z.string(),
+  billingNotes: z.string().nullable(),
+});
+
+const paymentHistoryViewSchema = z.object({
+  paymentId: z.number(),
+  billId: z.number(),
+  billNumber: z.string(),
+  patientId: z.number(),
+  patientName: z.string(),
+  paymentDate: z.coerce.date(),
+  amountPaid: z.union([z.string(), z.number()]),
+  paymentMethod: z.string(),
+  transactionReference: z.string().nullable(),
+  paymentStatus: z.string(),
+  receivedBy: z.string().nullable(),
+  paymentNotes: z.string().nullable(),
+});
+
+const dashboardStatsSchema = z.object({
+  avgSystolic: z.number().nullable(),
+  avgDiastolic: z.number().nullable(),
+  avgBloodSugar: z.number().nullable(),
+  avgCholesterol: z.number().nullable(),
+  avgOxygenSaturation: z.number().nullable(),
+  avgBmi: z.number().nullable(),
+  activeAlerts: z.number(),
+  patientCount: z.number(),
+  doctorCount: z.number(),
+  highAlertPatients: z.number(),
+  topDoctorName: z.string().nullable(),
+  highestRefillMedicineName: z.string().nullable(),
+  highestRefillCost: z.number().nullable(),
+});
+
+const prescriptionPayloadSchema = z.object({
+  prescription: insertPrescriptionSchema.extend({
+    patientId: z.coerce.number().int(),
+    doctorId: z.coerce.number().int(),
+  }),
+  medicines: z.array(insertMedicineSchema.extend({
+    refillIntervalDays: z.coerce.number().int().optional().nullable(),
+  })),
+});
+
+const nonNegativeNumber = (label: string) =>
+  z.coerce.number().refine((value) => value >= 0, {
+    message: `${label} cannot be negative`,
+  });
+
+const positiveNumber = (label: string) =>
+  z.coerce.number().refine((value) => value > 0, {
+    message: `${label} must be greater than 0`,
+  });
+
+const patientInputSchema = insertPatientSchema.extend({
+  age: z.coerce.number().int().min(0, "Age cannot be negative"),
+  gender: z.enum(["Male", "Female", "Other"]),
+});
+
+const patientCreateSchema = patientInputSchema.extend({
+  username: z.string().min(3, "Username must be at least 3 characters").optional(),
+  password: z.string().min(4, "Password must be at least 4 characters").optional(),
+}).refine(
+  (value) => (!value.username && !value.password) || (Boolean(value.username) && Boolean(value.password)),
+  {
+    message: "Username and password must both be provided to create patient login credentials",
+    path: ["username"],
+  },
+);
+
+const doctorInputSchema = insertDoctorSchema.extend({
+  name: z.string().min(2, "Doctor name is required"),
+  specialization: z.string().min(2, "Specialization is required"),
+});
+
+const healthRecordInputSchema = insertHealthRecordSchema.extend({
+  patientId: z.coerce.number().int(),
+  bloodSugar: nonNegativeNumber("Blood sugar").optional(),
+  bpSystolic: nonNegativeNumber("BP systolic").optional(),
+  bpDiastolic: nonNegativeNumber("BP diastolic").optional(),
+  cholesterol: nonNegativeNumber("Cholesterol").optional(),
+  oxygenSaturation: nonNegativeNumber("Oxygen saturation").optional(),
+  bmi: nonNegativeNumber("BMI").optional(),
+});
+
+const billInputSchema = insertBillSchema.extend({
+  patientId: z.coerce.number().int(),
+  doctorId: z.coerce.number().int().optional().nullable(),
+  prescriptionId: z.coerce.number().int().optional().nullable(),
+  dueDate: z.coerce.date().optional().nullable(),
+  subtotal: nonNegativeNumber("Subtotal"),
+  taxAmount: nonNegativeNumber("Tax amount").optional(),
+  discountAmount: nonNegativeNumber("Discount amount").optional(),
+  totalAmount: nonNegativeNumber("Total amount"),
+  paidAmount: nonNegativeNumber("Paid amount").optional(),
+  balanceAmount: nonNegativeNumber("Balance amount").optional(),
+  paymentStatus: z.string().optional(),
+});
+
+const paymentMethodSchema = z.enum(["Cash", "Card", "UPI", "Net Banking", "Cheque", "Insurance"]);
+
+const paymentInputSchema = insertPaymentHistorySchema.extend({
+  billId: z.coerce.number().int(),
+  patientId: z.coerce.number().int(),
+  amountPaid: positiveNumber("Amount paid"),
+  paymentMethod: paymentMethodSchema,
+});
+
+const alertStatusSchema = z.enum(["pending", "resolved", "suppressed"]);
 
 export const errorSchemas = {
   validation: z.object({
@@ -26,131 +202,361 @@ export const errorSchemas = {
     message: z.string(),
   }),
   unauthorized: z.object({
-    message: z.string()
-  })
+    message: z.string(),
+  }),
 };
 
 export const api = {
   auth: {
     login: {
-      method: 'POST' as const,
-      path: '/api/login' as const,
+      method: "POST" as const,
+      path: "/api/login" as const,
       input: z.object({ username: z.string(), password: z.string() }),
       responses: {
         200: z.custom<typeof users.$inferSelect>(),
-        401: errorSchemas.unauthorized
-      }
+        401: errorSchemas.unauthorized,
+      },
     },
     logout: {
-      method: 'POST' as const,
-      path: '/api/logout' as const,
+      method: "POST" as const,
+      path: "/api/logout" as const,
       responses: {
-        200: z.object({ message: z.string() })
-      }
+        200: z.object({ message: z.string() }),
+      },
     },
     me: {
-      method: 'GET' as const,
-      path: '/api/me' as const,
+      method: "GET" as const,
+      path: "/api/me" as const,
       responses: {
         200: z.custom<typeof users.$inferSelect>(),
-        401: errorSchemas.unauthorized
-      }
-    }
+        401: errorSchemas.unauthorized,
+      },
+    },
+    recoveryRequest: {
+      method: "POST" as const,
+      path: "/api/auth/recovery/request" as const,
+      input: z.object({
+        phone: z.string().min(6),
+      }),
+      responses: {
+        200: z.object({
+          message: z.string(),
+          deliveryMode: z.enum(["sms", "log"]),
+        }),
+        400: errorSchemas.validation,
+      },
+    },
+    recoveryVerify: {
+      method: "POST" as const,
+      path: "/api/auth/recovery/verify" as const,
+      input: z.object({
+        phone: z.string().min(6),
+        otp: z.string().length(6),
+      }),
+      responses: {
+        200: z.object({
+          message: z.string(),
+          deliveryMode: z.enum(["sms", "log"]),
+        }),
+        400: errorSchemas.validation,
+      },
+    },
   },
   dashboard: {
     stats: {
-      method: 'GET' as const,
-      path: '/api/dashboard/stats' as const,
+      method: "GET" as const,
+      path: "/api/dashboard/stats" as const,
       responses: {
-        200: z.object({
-          avgSystolic: z.number().nullable(),
-          avgDiastolic: z.number().nullable(),
-          avgBloodSugar: z.number().nullable(),
-          activeAlerts: z.number()
-        })
-      }
-    }
+        200: dashboardStatsSchema,
+      },
+    },
   },
   patients: {
     list: {
-      method: 'GET' as const,
-      path: '/api/patients' as const,
+      method: "GET" as const,
+      path: "/api/patients" as const,
       responses: {
-        200: z.array(z.custom<typeof patients.$inferSelect>())
-      }
-    }
+        200: z.array(z.custom<typeof patients.$inferSelect>()),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/patients" as const,
+      input: patientCreateSchema,
+      responses: {
+        201: z.custom<typeof patients.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: "PUT" as const,
+      path: "/api/patients/:patientId" as const,
+      input: patientInputSchema.extend({
+        patientId: z.coerce.number().int(),
+      }),
+      responses: {
+        200: z.custom<typeof patients.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: "DELETE" as const,
+      path: "/api/patients/:patientId" as const,
+      input: z.object({
+        patientId: z.coerce.number().int(),
+      }),
+      responses: {
+        200: z.object({ message: z.string() }),
+        400: errorSchemas.validation,
+      },
+    },
   },
   doctors: {
     list: {
-      method: 'GET' as const,
-      path: '/api/doctors' as const,
+      method: "GET" as const,
+      path: "/api/doctors" as const,
       responses: {
-        200: z.array(z.custom<typeof doctors.$inferSelect>())
-      }
-    }
+        200: z.array(z.custom<typeof doctors.$inferSelect>()),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/doctors" as const,
+      input: doctorInputSchema,
+      responses: {
+        201: z.custom<typeof doctors.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: "PUT" as const,
+      path: "/api/doctors/:doctorId" as const,
+      input: doctorInputSchema.extend({
+        doctorId: z.coerce.number().int(),
+      }),
+      responses: {
+        200: z.custom<typeof doctors.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: "DELETE" as const,
+      path: "/api/doctors/:doctorId" as const,
+      input: z.object({
+        doctorId: z.coerce.number().int(),
+      }),
+      responses: {
+        200: z.object({ message: z.string() }),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+  medicines: {
+    list: {
+      method: "GET" as const,
+      path: "/api/medicines" as const,
+      responses: {
+        200: z.array(medicineViewSchema),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/medicines" as const,
+      input: insertMedicineSchema.extend({
+        prescriptionId: z.coerce.number().int(),
+        refillIntervalDays: z.coerce.number().int().optional().nullable(),
+      }),
+      responses: {
+        201: z.custom<typeof medicines.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
   },
   healthRecords: {
     list: {
-      method: 'GET' as const,
-      path: '/api/health-records' as const,
+      method: "GET" as const,
+      path: "/api/health-records" as const,
       responses: {
-        200: z.array(z.custom<typeof healthRecords.$inferSelect & { patientName?: string }>())
-      }
+        200: z.array(patientHealthViewSchema),
+      },
     },
     create: {
-      method: 'POST' as const,
-      path: '/api/health-records' as const,
-      input: insertHealthRecordSchema.extend({
-        bloodSugar: z.coerce.number().optional(),
-        bpSystolic: z.coerce.number().optional(),
-        bpDiastolic: z.coerce.number().optional(),
-        patientId: z.coerce.number(),
-      }),
+      method: "POST" as const,
+      path: "/api/health-records" as const,
+      input: healthRecordInputSchema,
       responses: {
         201: z.custom<typeof healthRecords.$inferSelect>(),
-        400: errorSchemas.validation
-      }
-    }
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: "PUT" as const,
+      path: "/api/health-records/:recordId" as const,
+      input: healthRecordInputSchema.extend({
+        recordId: z.coerce.number().int(),
+      }),
+      responses: {
+        200: z.custom<typeof healthRecords.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
   },
   alerts: {
     list: {
-      method: 'GET' as const,
-      path: '/api/alerts' as const,
+      method: "GET" as const,
+      path: "/api/alerts" as const,
       responses: {
-        200: z.array(z.custom<typeof alerts.$inferSelect & { patientName?: string }>())
-      }
-    }
+        200: z.array(z.custom<typeof alerts.$inferSelect & { patientName?: string | null }>()),
+      },
+    },
+    updateStatus: {
+      method: "GET" as const,
+      path: "/api/alerts/update-status" as const,
+      input: z.object({
+        alertId: z.coerce.number().int(),
+        status: alertStatusSchema,
+      }),
+      responses: {
+        200: z.custom<typeof alerts.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+  billing: {
+    bills: {
+      list: {
+        method: "GET" as const,
+        path: "/api/billing/bills" as const,
+        responses: {
+          200: z.array(billViewSchema),
+        },
+      },
+      create: {
+        method: "POST" as const,
+        path: "/api/billing/bills" as const,
+        input: billInputSchema,
+        responses: {
+          201: z.custom<typeof bills.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+    },
+    payments: {
+      list: {
+        method: "GET" as const,
+        path: "/api/billing/payments" as const,
+        responses: {
+          200: z.array(paymentHistoryViewSchema),
+        },
+      },
+      create: {
+        method: "POST" as const,
+        path: "/api/billing/payments" as const,
+        input: paymentInputSchema,
+        responses: {
+          201: z.custom<typeof paymentHistory.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+    },
   },
   prescriptions: {
     list: {
-      method: 'GET' as const,
-      path: '/api/prescriptions' as const,
+      method: "GET" as const,
+      path: "/api/prescriptions" as const,
       responses: {
-        200: z.array(z.custom<typeof prescriptions.$inferSelect & { 
-          patientName?: string,
-          doctorName?: string,
-          medicines: Array<typeof medicines.$inferSelect> 
-        }>())
-      }
+        200: z.array(z.custom<typeof prescriptions.$inferSelect & {
+          patientName?: string | null;
+          doctorName?: string | null;
+          medicines: Array<typeof medicines.$inferSelect>;
+        }>()),
+      },
     },
     create: {
-      method: 'POST' as const,
-      path: '/api/prescriptions' as const,
-      input: z.object({
-        prescription: insertPrescriptionSchema.extend({
-          patientId: z.coerce.number(),
-          doctorId: z.coerce.number()
-        }),
-        medicines: z.array(insertMedicineSchema.extend({
-          refillIntervalDays: z.coerce.number().optional()
-        }))
-      }),
+      method: "POST" as const,
+      path: "/api/prescriptions" as const,
+      input: prescriptionPayloadSchema,
       responses: {
         201: z.custom<typeof prescriptions.$inferSelect>(),
-        400: errorSchemas.validation
-      }
-    }
-  }
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: "PUT" as const,
+      path: "/api/prescriptions/:prescriptionId" as const,
+      input: prescriptionPayloadSchema.extend({
+        prescriptionId: z.coerce.number().int(),
+      }),
+      responses: {
+        200: z.custom<typeof prescriptions.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: "DELETE" as const,
+      path: "/api/prescriptions/:prescriptionId" as const,
+      input: z.object({
+        prescriptionId: z.coerce.number().int(),
+      }),
+      responses: {
+        200: z.object({ message: z.string() }),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+  views: {
+    patientPrescriptions: {
+      method: "GET" as const,
+      path: "/api/views/patient-prescriptions" as const,
+      responses: {
+        200: z.array(patientPrescriptionViewSchema),
+      },
+    },
+    patientHealth: {
+      method: "GET" as const,
+      path: "/api/views/patient-health" as const,
+      responses: {
+        200: z.array(patientHealthViewSchema),
+      },
+    },
+    pendingAlerts: {
+      method: "GET" as const,
+      path: "/api/views/pending-alerts" as const,
+      responses: {
+        200: z.array(pendingAlertViewSchema),
+      },
+    },
+    healthRisk: {
+      method: "GET" as const,
+      path: "/api/views/health-risk" as const,
+      responses: {
+        200: z.array(patientHealthViewSchema),
+      },
+    },
+  },
+  dev: {
+    seed: {
+      method: "POST" as const,
+      path: "/api/dev/seed" as const,
+      responses: {
+        200: z.object({
+          message: z.string(),
+          seeded: z.boolean(),
+        }),
+      },
+    },
+    mockSms: {
+      method: "GET" as const,
+      path: "/api/dev/mock-sms" as const,
+      responses: {
+        200: z.array(z.object({
+          phone: z.string(),
+          message: z.string(),
+          createdAt: z.coerce.date(),
+        })),
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

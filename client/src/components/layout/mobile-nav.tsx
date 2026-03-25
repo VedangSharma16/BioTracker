@@ -1,27 +1,38 @@
 import { Link, useLocation } from "wouter";
-import { Activity, Bell, FileText, LayoutDashboard, Menu, Pill } from "lucide-react";
+import { Bell, CreditCard, FileText, LayoutDashboard, Menu, Pill, Stethoscope, Users } from "lucide-react";
 import { useUser } from "@/hooks/use-auth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import bioTrackerLogo from "@frontend-assets/logo.png";
 
 export function MobileNav() {
   const [location] = useLocation();
   const { data: user } = useUser();
+  const isAdmin = user?.role?.toLowerCase() === "admin";
 
   const navigation = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    ...(isAdmin
+      ? [
+          { name: "Patients", href: "/patients", icon: Users },
+          { name: "Doctors", href: "/doctors", icon: Stethoscope },
+        ]
+      : []),
     { name: "Records", href: "/records", icon: FileText },
     { name: "Prescriptions", href: "/prescriptions", icon: Pill },
+    { name: isAdmin ? "Billing" : "My Billing", href: "/billing", icon: CreditCard },
     { name: "Alerts", href: "/alerts", icon: Bell },
   ];
 
   return (
     <div className="md:hidden flex items-center justify-between p-4 bg-card border-b border-white/5 sticky top-0 z-50">
       <div className="flex items-center gap-2">
-        <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
-          <Activity className="w-5 h-5" />
-        </div>
-        <h1 className="font-bold text-lg tracking-tight">HealthTracker</h1>
+        <img
+          src={bioTrackerLogo}
+          alt="BioTracker logo"
+          className="h-10 w-10 rounded-lg object-cover ring-1 ring-white/10"
+        />
+        <h1 className="font-bold text-lg tracking-tight">BioTracker</h1>
       </div>
 
       <Sheet>

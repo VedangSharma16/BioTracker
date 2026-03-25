@@ -39,6 +39,44 @@ export function useCreateHealthRecord() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.healthRecords.list.path] });
       queryClient.invalidateQueries({ queryKey: [api.dashboard.stats.path] });
+      queryClient.invalidateQueries({ queryKey: [api.alerts.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.views.patientHealth.path] });
+      queryClient.invalidateQueries({ queryKey: [api.views.pendingAlerts.path] });
+      queryClient.invalidateQueries({ queryKey: [api.views.healthRisk.path] });
+    },
+  });
+}
+
+export function useUpdateHealthRecord() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: z.infer<typeof api.healthRecords.update.input>) => {
+      const validated = api.healthRecords.update.input.parse(data);
+      const res = await fetch(api.healthRecords.update.path.replace(":recordId", String(validated.recordId)), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validated),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        if (res.status === 400) {
+          const err = api.healthRecords.update.responses[400].parse(await res.json());
+          throw new Error(err.message);
+        }
+        throw new Error("Failed to update health record");
+      }
+
+      return api.healthRecords.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.healthRecords.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.dashboard.stats.path] });
+      queryClient.invalidateQueries({ queryKey: [api.alerts.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.views.patientHealth.path] });
+      queryClient.invalidateQueries({ queryKey: [api.views.pendingAlerts.path] });
+      queryClient.invalidateQueries({ queryKey: [api.views.healthRisk.path] });
     },
   });
 }
