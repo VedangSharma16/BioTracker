@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import {
   alerts,
   bills,
@@ -152,6 +152,7 @@ const patientCreateSchema = patientInputSchema.extend({
 const doctorInputSchema = insertDoctorSchema.extend({
   name: z.string().min(2, "Doctor name is required"),
   specialization: z.string().min(2, "Specialization is required"),
+  contact: phoneSchema,
 });
 
 const healthRecordInputSchema = insertHealthRecordSchema.extend({

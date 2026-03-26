@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Redirect } from "wouter";
 import { Pencil, Plus, Search, Stethoscope, Trash2 } from "lucide-react";
 import { useCreateDoctor, useDeleteDoctor, useDoctors, useUpdateDoctor } from "@/hooks/use-doctors";
@@ -7,19 +7,49 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 
 type DoctorFormState = {
   name: string;
   specialization: string;
-  contact: string;
+  contactCountryCode: string;
+  contactNumber: string;
 };
+
+const countryCodeOptions = ["+1", "+44", "+61", "+91", "+971"] as const;
+
+function normalizePhoneNumber(value: string) {
+  return value.replace(/\D/g, "").slice(0, 10);
+}
+
+function formatPhoneNumber(countryCode: string, localNumber: string) {
+  return `${countryCode} ${normalizePhoneNumber(localNumber)}`.trim();
+}
+
+function splitPhoneNumber(value: string | null | undefined) {
+  const trimmed = (value ?? "").trim();
+  const match = trimmed.match(/^(\+\d{1,4})\s*(\d{0,10})$/);
+
+  if (match) {
+    return {
+      countryCode: match[1],
+      localNumber: match[2],
+    };
+  }
+
+  return {
+    countryCode: "+91",
+    localNumber: normalizePhoneNumber(trimmed),
+  };
+}
 
 const emptyForm: DoctorFormState = {
   name: "",
   specialization: "",
-  contact: "",
+  contactCountryCode: "+91",
+  contactNumber: "",
 };
 
 export default function Doctors() {
@@ -59,7 +89,7 @@ export default function Doctors() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search doctors by ID, name, or specialization"
+              placeholder="Search doctors by ID, name, specialization, or contact"
               className="pl-9"
             />
           </div>
@@ -132,10 +162,12 @@ function DoctorDialog({
     if (!open) return;
 
     if (mode === "edit" && doctor) {
+      const contact = splitPhoneNumber(doctor.contact);
       setForm({
         name: doctor.name,
         specialization: doctor.specialization,
-        contact: doctor.contact ?? "",
+        contactCountryCode: contact.countryCode,
+        contactNumber: contact.localNumber,
       });
       return;
     }
@@ -148,10 +180,15 @@ function DoctorDialog({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (form.contactNumber.length !== 10) {
+      toast({ title: "Error", description: "Contact number must be exactly 10 digits.", variant: "destructive" });
+      return;
+    }
+
     const payload = {
       name: form.name,
       specialization: form.specialization,
-      contact: form.contact || undefined,
+      contact: formatPhoneNumber(form.contactCountryCode, form.contactNumber),
     };
 
     if (mode === "create") {
@@ -199,7 +236,13 @@ function DoctorDialog({
         <form className="space-y-4" onSubmit={handleSubmit}>
           <SimpleField label="Name" value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} />
           <SimpleField label="Specialization" value={form.specialization} onChange={(value) => setForm((current) => ({ ...current, specialization: value }))} />
-          <SimpleField label="Contact" value={form.contact} onChange={(value) => setForm((current) => ({ ...current, contact: value }))} />
+          <PhoneField
+            label="Contact"
+            countryCode={form.contactCountryCode}
+            number={form.contactNumber}
+            onCountryCodeChange={(value) => setForm((current) => ({ ...current, contactCountryCode: value }))}
+            onNumberChange={(value) => setForm((current) => ({ ...current, contactNumber: normalizePhoneNumber(value) }))}
+          />
           <Button type="submit" disabled={isPending} className="w-full">{isPending ? "Saving..." : mode === "create" ? "Save Doctor" : "Update Doctor"}</Button>
         </form>
       </DialogContent>
@@ -242,3 +285,47 @@ function SimpleField({ label, value, onChange }: { label: string; value: string;
     </div>
   );
 }
+
+function PhoneField({
+  label,
+  countryCode,
+  number,
+  onCountryCodeChange,
+  onNumberChange,
+}: {
+  label: string;
+  countryCode: string;
+  number: string;
+  onCountryCodeChange: (value: string) => void;
+  onNumberChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="grid grid-cols-[120px_1fr] gap-3">
+        <Select value={countryCode} onValueChange={onCountryCodeChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Code" />
+          </SelectTrigger>
+          <SelectContent>
+            {countryCodeOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          type="tel"
+          inputMode="numeric"
+          maxLength={10}
+          placeholder="10 digit number"
+          value={number}
+          onChange={(event) => onNumberChange(event.target.value)}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">Enter exactly 10 digits.</p>
+    </div>
+  );
+}
+
