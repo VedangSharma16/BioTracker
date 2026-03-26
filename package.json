@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "node --env-file=.env --import tsx backend/index.ts",
-    "build": "node --env-file=.env --import tsx scripts/build.ts",
+    "build": "node --import tsx scripts/build.ts",
     "start": "node --env-file=.env dist/backend/index.cjs",
     "check": "node ./node_modules/typescript/bin/tsc",
     "db:generate": "node --env-file=.env ./node_modules/drizzle-kit/bin.cjs generate",
@@ -100,5 +100,3 @@
     "bufferutil": "^4.0.8"
   }
 }
-
-
