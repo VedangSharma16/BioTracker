@@ -1,5 +1,5 @@
-import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
-import { db } from "./db";
+﻿import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { db } from "../config/db";
 import {
   alerts,
   bills,
@@ -29,7 +29,7 @@ import {
   type Patient,
   type Prescription,
   type User,
-} from "../database/schema";
+} from "../../database/schema";
 
 type DashboardStats = {
   avgSystolic: number | null;
@@ -1026,5 +1026,6 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
 
 

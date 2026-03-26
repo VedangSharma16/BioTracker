@@ -1,4 +1,4 @@
-﻿import "./backend/load-env";
+﻿import "./backend/config/load-env";
 import { defineConfig } from "drizzle-kit";
 
 const requiredVars = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
@@ -17,4 +17,5 @@ export default defineConfig({
     url: `mysql://${encodeURIComponent(process.env.DB_USER!)}:${encodeURIComponent(process.env.DB_PASSWORD!)}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
   },
 });
+
 

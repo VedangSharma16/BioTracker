@@ -331,8 +331,8 @@ function PatientDialog({
                 <p className="text-sm font-medium text-foreground">Patient Login</p>
                 <p className="text-xs text-muted-foreground">Username and password are required for every new patient.</p>
               </div>
-              <SimpleField label="Username" value={form.username} onChange={(value) => setForm((current) => ({ ...current, username: value }))} />
-              <SimpleField label="Password" value={form.password} onChange={(value) => setForm((current) => ({ ...current, password: value }))} type="password" />
+              <SimpleField label="Create username" value={form.username} onChange={(value) => setForm((current) => ({ ...current, username: value }))} />
+              <SimpleField label="Create password" value={form.password} onChange={(value) => setForm((current) => ({ ...current, password: value }))} type="password" />
             </div>
           ) : null}
 

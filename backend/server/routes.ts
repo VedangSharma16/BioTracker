@@ -1,14 +1,14 @@
-import type { Express, NextFunction, Request, Response } from "express";
+﻿import type { Express, NextFunction, Request, Response } from "express";
 import type { Server } from "http";
 import expressMySqlSession from "express-mysql-session";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { z } from "zod";
-import { api } from "./shared/routes";
-import { storage } from "./storage";
+import { api } from "../contracts/routes";
+import { storage } from "../services/storage";
 import { broadcastHealthEvent, setupRealtime } from "./realtime";
-import { generateTemporaryPassword, hashPassword, looksHashed, verifyPassword } from "./password";
+import { generateTemporaryPassword, hashPassword, looksHashed, verifyPassword } from "../security/password";
 
 const MySQLStoreFactory = expressMySqlSession(session);
 
@@ -696,5 +696,6 @@ export async function registerRoutes(
 
   return httpServer;
 }
+
 
 

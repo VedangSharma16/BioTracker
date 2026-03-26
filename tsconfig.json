@@ -17,7 +17,7 @@
     "types": ["node", "vite/client"],
     "paths": {
       "@/*": ["./frontend/src/*"],
-      "@shared/*": ["./backend/shared/*"]
+      "@shared/*": ["./backend/contracts/*"]
     }
   }
 }

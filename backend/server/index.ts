@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+﻿import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -81,7 +81,7 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
-    const { setupVite } = await import("./vite");
+    const { setupVite } = await import("../config/vite");
     await setupVite(httpServer, app);
   }
 
@@ -100,3 +100,5 @@ app.use((req, res, next) => {
     },
   );
 })();
+
+

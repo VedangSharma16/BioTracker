@@ -1,7 +1,7 @@
 ﻿import "./load-env";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import * as schema from "../database/schema";
+import * as schema from "../../database/schema";
 
 const requiredVars = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
 
@@ -23,5 +23,6 @@ export const connection = mysql.createPool({
 });
 
 export const db = drizzle(connection, { schema, mode: "default" });
+
 
 

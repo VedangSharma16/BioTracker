@@ -7,7 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "frontend", "src"),
-      "@shared": path.resolve(import.meta.dirname, "backend", "shared"),
+      "@shared": path.resolve(import.meta.dirname, "backend", "contracts"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
       "@frontend-assets": path.resolve(import.meta.dirname, "frontend", "assets"),
     },
