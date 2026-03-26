@@ -1,4 +1,4 @@
-import { build as esbuild } from "esbuild";
+﻿import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
 
@@ -46,11 +46,11 @@ async function buildAll() {
   const externals = allDeps.filter((dep) => !allowlist.includes(dep));
 
   await esbuild({
-    entryPoints: ["server/index.ts"],
+    entryPoints: ["backend/index.ts"],
     platform: "node",
     bundle: true,
     format: "cjs",
-    outfile: "dist/server/index.cjs",
+    outfile: "dist/backend/index.cjs",
     define: {
       "process.env.NODE_ENV": '"production"',
     },
@@ -64,3 +64,5 @@ buildAll().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+

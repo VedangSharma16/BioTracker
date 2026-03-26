@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
@@ -6,13 +6,13 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
+      "@": path.resolve(import.meta.dirname, "frontend", "src"),
+      "@shared": path.resolve(import.meta.dirname, "backend", "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
       "@frontend-assets": path.resolve(import.meta.dirname, "frontend", "assets"),
     },
   },
-  root: path.resolve(import.meta.dirname, "client"),
+  root: path.resolve(import.meta.dirname, "frontend"),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
@@ -24,3 +24,4 @@ export default defineConfig({
     },
   },
 });
+

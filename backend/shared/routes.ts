@@ -17,7 +17,7 @@ import {
   patients,
   prescriptions,
   users,
-} from "./schema";
+} from "../../database/schema";
 
 const patientHealthViewSchema = z.object({
   recordId: z.number(),
@@ -186,6 +186,14 @@ const paymentInputSchema = insertPaymentHistorySchema.extend({
   patientId: z.coerce.number().int(),
   amountPaid: positiveNumber("Amount paid"),
   paymentMethod: paymentMethodSchema,
+});
+
+const billUpdateSchema = billInputSchema.extend({
+  billId: z.coerce.number().int(),
+});
+
+const paymentUpdateSchema = paymentInputSchema.extend({
+  paymentId: z.coerce.number().int(),
 });
 
 const alertStatusSchema = z.enum(["pending", "resolved", "suppressed"]);
@@ -440,6 +448,26 @@ export const api = {
           400: errorSchemas.validation,
         },
       },
+      update: {
+        method: "PUT" as const,
+        path: "/api/billing/bills/:billId" as const,
+        input: billUpdateSchema,
+        responses: {
+          200: z.custom<typeof bills.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+      delete: {
+        method: "DELETE" as const,
+        path: "/api/billing/bills/:billId" as const,
+        input: z.object({
+          billId: z.coerce.number().int(),
+        }),
+        responses: {
+          200: z.object({ message: z.string() }),
+          400: errorSchemas.validation,
+        },
+      },
     },
     payments: {
       list: {
@@ -455,6 +483,26 @@ export const api = {
         input: paymentInputSchema,
         responses: {
           201: z.custom<typeof paymentHistory.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+      update: {
+        method: "PUT" as const,
+        path: "/api/billing/payments/:paymentId" as const,
+        input: paymentUpdateSchema,
+        responses: {
+          200: z.custom<typeof paymentHistory.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+      delete: {
+        method: "DELETE" as const,
+        path: "/api/billing/payments/:paymentId" as const,
+        input: z.object({
+          paymentId: z.coerce.number().int(),
+        }),
+        responses: {
+          200: z.object({ message: z.string() }),
           400: errorSchemas.validation,
         },
       },
@@ -570,3 +618,4 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
+

@@ -5,7 +5,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { z } from "zod";
-import { api } from "@shared/routes";
+import { api } from "./shared/routes";
 import { storage } from "./storage";
 import { broadcastHealthEvent, setupRealtime } from "./realtime";
 
@@ -355,6 +355,45 @@ export async function registerRoutes(
     }
   });
 
+  app.put(api.billing.bills.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.billing.bills.update.input.parse({
+        ...req.body,
+        billId: Number(req.params.billId),
+      });
+      const updated = await storage.updateBill(input.billId, {
+        billNumber: input.billNumber,
+        patientId: input.patientId,
+        doctorId: input.doctorId,
+        prescriptionId: input.prescriptionId,
+        dueDate: input.dueDate,
+        subtotal: String(input.subtotal.toFixed(2)),
+        taxAmount: String((input.taxAmount ?? 0).toFixed(2)),
+        discountAmount: String((input.discountAmount ?? 0).toFixed(2)),
+        totalAmount: String(input.totalAmount.toFixed(2)),
+        paidAmount: input.paidAmount !== undefined ? String(input.paidAmount.toFixed(2)) : undefined,
+        balanceAmount: input.balanceAmount !== undefined ? String(input.balanceAmount.toFixed(2)) : undefined,
+        paymentStatus: input.paymentStatus,
+        billingNotes: input.billingNotes,
+      });
+      res.status(200).json(updated);
+    } catch (error) {
+      return handleZodError(res, error);
+    }
+  });
+
+  app.delete(api.billing.bills.delete.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.billing.bills.delete.input.parse({
+        billId: Number(req.params.billId),
+      });
+      await storage.deleteBill(input.billId);
+      res.status(200).json({ message: "Bill deleted." });
+    } catch (error) {
+      return handleZodError(res, error);
+    }
+  });
+
   app.get(api.billing.payments.list.path, requireAuth, async (req, res) => {
     const patientId = getScopedPatientId(req.user);
     res.status(200).json(await storage.getPaymentHistory(patientId));
@@ -372,6 +411,40 @@ export async function registerRoutes(
       if (error instanceof Error && error.message === "Bill not found") {
         return res.status(400).json({ message: error.message });
       }
+      return handleZodError(res, error);
+    }
+  });
+
+  app.put(api.billing.payments.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.billing.payments.update.input.parse({
+        ...req.body,
+        paymentId: Number(req.params.paymentId),
+      });
+      const updated = await storage.updatePaymentHistory(input.paymentId, {
+        billId: input.billId,
+        patientId: input.patientId,
+        amountPaid: String(input.amountPaid.toFixed(2)),
+        paymentMethod: input.paymentMethod,
+        transactionReference: input.transactionReference,
+        paymentStatus: input.paymentStatus,
+        receivedBy: input.receivedBy,
+        paymentNotes: input.paymentNotes,
+      });
+      res.status(200).json(updated);
+    } catch (error) {
+      return handleZodError(res, error);
+    }
+  });
+
+  app.delete(api.billing.payments.delete.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.billing.payments.delete.input.parse({
+        paymentId: Number(req.params.paymentId),
+      });
+      await storage.deletePaymentHistory(input.paymentId);
+      res.status(200).json({ message: "Payment deleted." });
+    } catch (error) {
       return handleZodError(res, error);
     }
   });
@@ -520,3 +593,5 @@ export async function registerRoutes(
 
   return httpServer;
 }
+
+

@@ -4,9 +4,9 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "node --env-file=.env --import tsx server/index.ts",
-    "build": "node --env-file=.env --import tsx script/build.ts",
-    "start": "node --env-file=.env dist/server/index.cjs",
+    "dev": "node --env-file=.env --import tsx backend/index.ts",
+    "build": "node --env-file=.env --import tsx scripts/build.ts",
+    "start": "node --env-file=.env dist/backend/index.cjs",
     "check": "node ./node_modules/typescript/bin/tsc",
     "db:generate": "node --env-file=.env ./node_modules/drizzle-kit/bin.cjs generate",
     "db:push": "node --env-file=.env ./node_modules/drizzle-kit/bin.cjs push"
@@ -100,3 +100,5 @@
     "bufferutil": "^4.0.8"
   }
 }
+
+

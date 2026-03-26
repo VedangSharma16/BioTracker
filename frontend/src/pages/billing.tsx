@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CreditCard, Plus, Receipt, Search } from "lucide-react";
-import { useBills, useCreateBill, useCreatePayment, usePaymentHistory } from "@/hooks/use-billing";
+import { CreditCard, Pencil, Plus, Receipt, Search, Trash2 } from "lucide-react";
+import { useBills, useCreateBill, useCreatePayment, useDeleteBill, useDeletePayment, usePaymentHistory, useUpdateBill, useUpdatePayment } from "@/hooks/use-billing";
 import { usePatients } from "@/hooks/use-patients";
 import { useDoctors } from "@/hooks/use-doctors";
 import { usePrescriptions } from "@/hooks/use-prescriptions";
@@ -110,13 +110,13 @@ export default function Billing() {
                   <TableHead>Paid</TableHead>
                   <TableHead>Balance</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Due Date</TableHead>
+                  <TableHead>Due Date</TableHead>{isAdmin ? <TableHead className="text-right">Actions</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loadingBills ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Loading bills...</TableCell>
+                    <TableCell colSpan={isAdmin ? 8 : 7} className="py-10 text-center text-muted-foreground">Loading bills...</TableCell>
                   </TableRow>
                 ) : filteredBills.length ? (
                   filteredBills.map((bill) => (
@@ -136,11 +136,19 @@ export default function Billing() {
                       <TableCell>{formatMoney(bill.balanceAmount)}</TableCell>
                       <TableCell className="capitalize">{bill.paymentStatus}</TableCell>
                       <TableCell>{bill.dueDate ? format(new Date(bill.dueDate), "dd MMM yyyy") : "-"}</TableCell>
+                      {isAdmin ? (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <EditBillDialog bill={bill} />
+                            <DeleteBillButton billId={bill.billId} />
+                          </div>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">No bills matched your search.</TableCell>
+                    <TableCell colSpan={isAdmin ? 8 : 7} className="py-10 text-center text-muted-foreground">No bills matched your search.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -160,13 +168,13 @@ export default function Billing() {
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
                   <TableHead>Reference</TableHead>
-                  <TableHead>Received By</TableHead>
+                  <TableHead>Received By</TableHead>{isAdmin ? <TableHead className="text-right">Actions</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loadingPayments ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Loading payments...</TableCell>
+                    <TableCell colSpan={isAdmin ? 8 : 7} className="py-10 text-center text-muted-foreground">Loading payments...</TableCell>
                   </TableRow>
                 ) : filteredPayments.length ? (
                   filteredPayments.map((payment) => (
@@ -178,11 +186,19 @@ export default function Billing() {
                       <TableCell>{payment.paymentMethod}</TableCell>
                       <TableCell>{payment.transactionReference || "-"}</TableCell>
                       <TableCell>{payment.receivedBy || "-"}</TableCell>
+                      {isAdmin ? (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <EditPaymentDialog payment={payment} bills={bills ?? []} />
+                            <DeletePaymentButton paymentId={payment.paymentId} />
+                          </div>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">No payments matched your search.</TableCell>
+                    <TableCell colSpan={isAdmin ? 8 : 7} className="py-10 text-center text-muted-foreground">No payments matched your search.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -489,4 +505,45 @@ function SelectField({
       </Select>
     </div>
   );
+}
+
+
+
+
+function EditBillDialog({ bill }: { bill: any }) {
+  const { toast } = useToast();
+  const { mutate: updateBill, isPending } = useUpdateBill();
+
+  return <Button variant="outline" size="icon" disabled={isPending} onClick={() => {
+    const totalAmount = window.prompt("Total amount", String(bill.totalAmount));
+    if (totalAmount === null) return;
+    const paymentStatus = window.prompt("Payment status (pending/partial/paid)", String(bill.paymentStatus));
+    if (paymentStatus === null) return;
+    updateBill({ billId: bill.billId, billNumber: bill.billNumber, patientId: bill.patientId, doctorId: bill.doctorId ?? undefined, prescriptionId: bill.prescriptionId ?? undefined, dueDate: bill.dueDate ? new Date(bill.dueDate) : undefined, subtotal: Number(bill.subtotal), taxAmount: Number(bill.taxAmount), discountAmount: Number(bill.discountAmount), totalAmount: Number(totalAmount), paidAmount: Number(bill.paidAmount), balanceAmount: Number(bill.balanceAmount), paymentStatus, billingNotes: bill.billingNotes ?? undefined }, { onSuccess: () => toast({ title: "Success", description: "Bill updated." }), onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }) });
+  }}><Pencil className="h-4 w-4" /></Button>;
+}
+
+function DeleteBillButton({ billId }: { billId: number }) {
+  const { toast } = useToast();
+  const { mutate: deleteBill, isPending } = useDeleteBill();
+  return <Button variant="destructive" size="icon" disabled={isPending} onClick={() => { if (window.confirm("Delete this bill?")) { deleteBill(billId, { onSuccess: () => toast({ title: "Success", description: "Bill deleted." }), onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }) }); } }}><Trash2 className="h-4 w-4" /></Button>;
+}
+
+function EditPaymentDialog({ payment, bills }: { payment: any; bills: any[] }) {
+  const { toast } = useToast();
+  const { mutate: updatePayment, isPending } = useUpdatePayment();
+  return <Button variant="outline" size="icon" disabled={isPending} onClick={() => {
+    const amountPaid = window.prompt("Amount paid", String(payment.amountPaid));
+    if (amountPaid === null) return;
+    const paymentMethod = window.prompt("Payment method", String(payment.paymentMethod));
+    if (paymentMethod === null) return;
+    const selectedBill = bills.find((bill) => bill.billId === payment.billId);
+    updatePayment({ paymentId: payment.paymentId, billId: payment.billId, patientId: selectedBill?.patientId ?? payment.patientId, amountPaid: Number(amountPaid), paymentMethod: paymentMethod as (typeof paymentMethodOptions)[number], transactionReference: payment.transactionReference ?? undefined, receivedBy: payment.receivedBy ?? undefined, paymentNotes: payment.paymentNotes ?? undefined, paymentStatus: "completed" }, { onSuccess: () => toast({ title: "Success", description: "Payment updated." }), onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }) });
+  }}><Pencil className="h-4 w-4" /></Button>;
+}
+
+function DeletePaymentButton({ paymentId }: { paymentId: number }) {
+  const { toast } = useToast();
+  const { mutate: deletePayment, isPending } = useDeletePayment();
+  return <Button variant="destructive" size="icon" disabled={isPending} onClick={() => { if (window.confirm("Delete this payment?")) { deletePayment(paymentId, { onSuccess: () => toast({ title: "Success", description: "Payment deleted." }), onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }) }); } }}><Trash2 className="h-4 w-4" /></Button>;
 }

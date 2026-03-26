@@ -29,7 +29,7 @@ import {
   type Patient,
   type Prescription,
   type User,
-} from "@shared/schema";
+} from "../database/schema";
 
 type DashboardStats = {
   avgSystolic: number | null;
@@ -247,8 +247,12 @@ export interface IStorage {
   createMedicine(medicine: InsertMedicine & { prescriptionId: number }): Promise<Medicine>;
   getBills(patientId?: number): Promise<BillView[]>;
   createBill(bill: InsertBill & { billingDate?: Date }): Promise<Bill>;
+  updateBill(billId: number, bill: Partial<InsertBill>): Promise<Bill>;
+  deleteBill(billId: number): Promise<void>;
   getPaymentHistory(patientId?: number): Promise<PaymentHistoryView[]>;
   createPaymentHistory(payment: InsertPaymentHistory & { paymentDate?: Date }): Promise<PaymentHistory>;
+  updatePaymentHistory(paymentId: number, payment: Partial<InsertPaymentHistory>): Promise<PaymentHistory>;
+  deletePaymentHistory(paymentId: number): Promise<void>;
   getHealthRecords(patientId?: number): Promise<PatientHealthView[]>;
   createHealthRecord(record: InsertHealthRecord & { recordDate?: Date }): Promise<HealthRecord>;
   updateHealthRecord(recordId: number, record: InsertHealthRecord): Promise<HealthRecord>;
@@ -542,6 +546,19 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async updateBill(billId: number, bill: Partial<InsertBill>): Promise<Bill> {
+    await db.update(bills).set(bill).where(eq(bills.billId, billId));
+    const [updated] = await db.select().from(bills).where(eq(bills.billId, billId));
+    return updated;
+  }
+
+  async deleteBill(billId: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.delete(paymentHistory).where(eq(paymentHistory.billId, billId));
+      await tx.delete(bills).where(eq(bills.billId, billId));
+    });
+  }
+
   async getPaymentHistory(patientId?: number): Promise<PaymentHistoryView[]> {
     let query = db
       .select({
@@ -600,6 +617,16 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+
+  async updatePaymentHistory(paymentId: number, payment: Partial<InsertPaymentHistory>): Promise<PaymentHistory> {
+    await db.update(paymentHistory).set(payment).where(eq(paymentHistory.paymentId, paymentId));
+    const [updated] = await db.select().from(paymentHistory).where(eq(paymentHistory.paymentId, paymentId));
+    return updated;
+  }
+
+  async deletePaymentHistory(paymentId: number): Promise<void> {
+    await db.delete(paymentHistory).where(eq(paymentHistory.paymentId, paymentId));
+  }
   async getHealthRecords(patientId?: number): Promise<PatientHealthView[]> {
     return this.getPatientHealthView(patientId);
   }
@@ -999,3 +1026,5 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+
