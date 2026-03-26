@@ -1,6 +1,6 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import type { Server } from "http";
-import MemoryStoreFactory from "memorystore";
+import expressMySqlSession from "express-mysql-session";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -8,6 +8,8 @@ import { z } from "zod";
 import { api } from "./shared/routes";
 import { storage } from "./storage";
 import { broadcastHealthEvent, setupRealtime } from "./realtime";
+
+const MySQLStoreFactory = expressMySqlSession(session);
 
 export async function registerRoutes(
   httpServer: Server,
@@ -23,9 +25,26 @@ export async function registerRoutes(
   const getScopedPatientId = (user: any) =>
     getRole(user) === "patient" ? user.patientId : undefined;
 
-  const MemoryStore = MemoryStoreFactory(session);
-  const store = new MemoryStore({
-    checkPeriod: 24 * 60 * 60 * 1000,
+  const isProduction = process.env.NODE_ENV === "production";
+
+  if (isProduction && !process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET must be set in production.");
+  }
+
+  if (isProduction) {
+    app.set("trust proxy", 1);
+  }
+
+  const store = new MySQLStoreFactory({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000,
+    expiration: 7 * 24 * 60 * 60 * 1000,
+    createDatabaseTable: true,
   });
 
   app.use(session({
@@ -33,7 +52,12 @@ export async function registerRoutes(
     resave: false,
     saveUninitialized: false,
     store,
-    cookie: { secure: false },
+    cookie: {
+      secure: isProduction,
+      sameSite: "lax",
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
   }));
 
   app.use(passport.initialize());
@@ -128,6 +152,10 @@ export async function registerRoutes(
       if (err) return next(err);
       res.status(200).json({ message: "Logged out" });
     });
+  });
+
+  app.get("/health", (_req, res) => {
+    res.status(200).json({ status: "ok" });
   });
 
   app.get(api.auth.me.path, requireAuth, (req, res) => {
@@ -576,20 +604,22 @@ export async function registerRoutes(
     res.status(200).json(await storage.getHealthRiskView(patientId));
   });
 
-  app.post(api.dev.seed.path, async (_req, res) => {
-    const seeded = await storage.seedDemoData();
-    if (seeded) {
-      broadcastHealthEvent({ type: "seed-complete" });
-    }
-    res.status(200).json({
-      message: seeded ? "Demo data seeded successfully" : "Demo data already present",
-      seeded,
+  if (!isProduction) {
+    app.post(api.dev.seed.path, async (_req, res) => {
+      const seeded = await storage.seedDemoData();
+      if (seeded) {
+        broadcastHealthEvent({ type: "seed-complete" });
+      }
+      res.status(200).json({
+        message: seeded ? "Demo data seeded successfully" : "Demo data already present",
+        seeded,
+      });
     });
-  });
 
-  app.get(api.dev.mockSms.path, (_req, res) => {
-    res.status(200).json(mockSmsInbox);
-  });
+    app.get(api.dev.mockSms.path, (_req, res) => {
+      res.status(200).json(mockSmsInbox);
+    });
+  }
 
   return httpServer;
 }

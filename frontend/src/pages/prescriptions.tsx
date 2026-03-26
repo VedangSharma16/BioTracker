@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   ChevronDown,
@@ -52,6 +52,7 @@ type GroupedPrescription = {
   patientName?: string | null;
   latestPrescriptionDate: string | Date;
   doctorNames: string[];
+  doctorIds: number[];
   medicines: Array<{
     medicineName: string;
     dosage: string;
@@ -88,6 +89,7 @@ export default function Prescriptions() {
           patientName: prescription.patientName,
           latestPrescriptionDate: prescription.prescriptionDate,
           doctorNames: [doctorLabel],
+          doctorIds: [prescription.doctorId],
           medicines: [...(prescription.medicines ?? [])],
           prescriptions: [prescription],
         });
@@ -102,6 +104,10 @@ export default function Prescriptions() {
 
       if (!existing.doctorNames.includes(doctorLabel)) {
         existing.doctorNames.push(doctorLabel);
+      }
+
+      if (!existing.doctorIds.includes(prescription.doctorId)) {
+        existing.doctorIds.push(prescription.doctorId);
       }
 
       for (const medicine of prescription.medicines ?? []) {
@@ -131,7 +137,9 @@ export default function Prescriptions() {
 
     return rows.filter((group) =>
       [
+        group.patientId,
         group.patientName,
+        group.doctorIds.join(", "),
         group.doctorNames.join(", "),
         group.medicines.map((medicine) => medicine.medicineName).join(", "),
       ]
@@ -167,7 +175,7 @@ export default function Prescriptions() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search patients, doctors, or medicines"
-              className="pl-9"
+              className="pl-9 text-foreground"
             />
           </div>
           {isAdmin && <PrescriptionDialog mode="create" />}
@@ -199,7 +207,19 @@ export default function Prescriptions() {
                       <h3 className="text-lg font-semibold text-foreground">
                         {group.patientName || `Patient #${group.patientId}`}
                       </h3>
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-white/10 bg-background/40 px-3 py-2">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Patient ID</p>
+                          <p className="mt-1 text-sm font-semibold text-foreground">#{group.patientId}</p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-background/40 px-3 py-2">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Doctor ID</p>
+                          <p className="mt-1 text-sm font-semibold text-foreground">
+                            {group.doctorIds.map((doctorId) => `#${doctorId}`).join(", ")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Stethoscope className="w-4 h-4" />
                           {group.doctorNames.join(", ")}
@@ -631,3 +651,4 @@ function PrescriptionDialog({
     </Dialog>
   );
 }
+

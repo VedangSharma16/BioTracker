@@ -42,7 +42,7 @@ export default function Patients() {
     if (!query) return patients ?? [];
 
     return (patients ?? []).filter((patient) =>
-      [patient.name, patient.gender, patient.phone, patient.emergencyContact]
+      [patient.patientId, patient.name, patient.gender, patient.phone, patient.emergencyContact]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
@@ -68,7 +68,7 @@ export default function Patients() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search patients by name, gender, or phone"
+              placeholder="Search patients by ID, name, gender, or phone"
               className="pl-9"
             />
           </div>
@@ -80,6 +80,7 @@ export default function Patients() {
         <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="border-white/10">
+              <TableHead>Patient ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Age</TableHead>
               <TableHead>Gender</TableHead>
@@ -91,11 +92,12 @@ export default function Patients() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Loading patients...</TableCell>
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Loading patients...</TableCell>
               </TableRow>
             ) : filteredPatients.length ? (
               filteredPatients.map((patient) => (
                 <TableRow key={patient.patientId} className="border-white/5">
+                  <TableCell className="font-medium text-primary">#{patient.patientId}</TableCell>
                   <TableCell className="font-medium">{patient.name}</TableCell>
                   <TableCell>{patient.age}</TableCell>
                   <TableCell>{patient.gender}</TableCell>
@@ -111,7 +113,7 @@ export default function Patients() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                   No patients matched your search.
                 </TableCell>
               </TableRow>
@@ -169,6 +171,11 @@ function PatientDialog({
 
     if (!form.gender) {
       toast({ title: "Error", description: "Please select a gender.", variant: "destructive" });
+      return;
+    }
+
+    if (!form.age || Number(form.age) < 0) {
+      toast({ title: "Error", description: "Age cannot be negative.", variant: "destructive" });
       return;
     }
 
@@ -231,7 +238,7 @@ function PatientDialog({
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <SimpleField label="Name" value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} />
-          <SimpleField label="Age" value={form.age} onChange={(value) => setForm((current) => ({ ...current, age: value }))} type="number" />
+          <SimpleField label="Age" value={form.age} onChange={(value) => setForm((current) => ({ ...current, age: value }))} type="number" min={0} />
           <div className="space-y-2">
             <Label>Gender</Label>
             <Select value={form.gender} onValueChange={(value) => setForm((current) => ({ ...current, gender: value as PatientFormState["gender"] }))}>
@@ -293,11 +300,11 @@ function DeletePatientButton({ patientId, patientName }: { patientId: number; pa
   );
 }
 
-function SimpleField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+function SimpleField({ label, value, onChange, type = "text", min }: { label: string; value: string; onChange: (value: string) => void; type?: string; min?: number }) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input type={type} min={min} value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
 }

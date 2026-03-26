@@ -33,7 +33,7 @@ export default function Doctors() {
     if (!query) return doctors ?? [];
 
     return (doctors ?? []).filter((doctor) =>
-      [doctor.name, doctor.specialization, doctor.contact]
+      [doctor.doctorId, doctor.name, doctor.specialization, doctor.contact]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
@@ -59,7 +59,7 @@ export default function Doctors() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search doctors or specializations"
+              placeholder="Search doctors by ID, name, or specialization"
               className="pl-9"
             />
           </div>
@@ -71,6 +71,7 @@ export default function Doctors() {
         <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="border-white/10">
+              <TableHead>Doctor ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Specialization</TableHead>
               <TableHead>Contact</TableHead>
@@ -80,11 +81,12 @@ export default function Doctors() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">Loading doctors...</TableCell>
+                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Loading doctors...</TableCell>
               </TableRow>
             ) : filteredDoctors.length ? (
               filteredDoctors.map((doctor) => (
                 <TableRow key={doctor.doctorId} className="border-white/5">
+                  <TableCell className="font-medium text-primary">#{doctor.doctorId}</TableCell>
                   <TableCell className="font-medium">{doctor.name}</TableCell>
                   <TableCell>{doctor.specialization}</TableCell>
                   <TableCell>{doctor.contact || "-"}</TableCell>
@@ -98,7 +100,7 @@ export default function Doctors() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">No doctors matched your search.</TableCell>
+                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No doctors matched your search.</TableCell>
               </TableRow>
             )}
           </TableBody>
