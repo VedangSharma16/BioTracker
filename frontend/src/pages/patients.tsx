@@ -15,18 +15,49 @@ type PatientFormState = {
   name: string;
   age: string;
   gender: "" | "Male" | "Female" | "Other";
-  phone: string;
-  emergencyContact: string;
+  phoneCountryCode: string;
+  phoneNumber: string;
+  emergencyCountryCode: string;
+  emergencyNumber: string;
   username: string;
   password: string;
 };
+
+const countryCodeOptions = ["+1", "+44", "+61", "+91", "+971"] as const;
+
+function normalizePhoneNumber(value: string) {
+  return value.replace(/\D/g, "").slice(0, 10);
+}
+
+function formatPhoneNumber(countryCode: string, localNumber: string) {
+  return `${countryCode} ${normalizePhoneNumber(localNumber)}`.trim();
+}
+
+function splitPhoneNumber(value: string | null | undefined) {
+  const trimmed = (value ?? "").trim();
+  const match = trimmed.match(/^(\+\d{1,4})\s*(\d{0,10})$/);
+
+  if (match) {
+    return {
+      countryCode: match[1],
+      localNumber: match[2],
+    };
+  }
+
+  return {
+    countryCode: "+91",
+    localNumber: normalizePhoneNumber(trimmed),
+  };
+}
 
 const emptyForm: PatientFormState = {
   name: "",
   age: "",
   gender: "",
-  phone: "",
-  emergencyContact: "",
+  phoneCountryCode: "+91",
+  phoneNumber: "",
+  emergencyCountryCode: "+91",
+  emergencyNumber: "",
   username: "",
   password: "",
 };
@@ -149,12 +180,17 @@ function PatientDialog({
     if (!open) return;
 
     if (mode === "edit" && patient) {
+      const phone = splitPhoneNumber(patient.phone);
+      const emergencyContact = splitPhoneNumber(patient.emergencyContact);
+
       setForm({
         name: patient.name,
         age: String(patient.age),
         gender: patient.gender as PatientFormState["gender"],
-        phone: patient.phone ?? "",
-        emergencyContact: patient.emergencyContact ?? "",
+        phoneCountryCode: phone.countryCode,
+        phoneNumber: phone.localNumber,
+        emergencyCountryCode: emergencyContact.countryCode,
+        emergencyNumber: emergencyContact.localNumber,
         username: "",
         password: "",
       });
@@ -180,12 +216,12 @@ function PatientDialog({
     }
 
     if (mode === "create") {
-      if (!form.phone.trim()) {
+      if (form.phoneNumber.length !== 10) {
         toast({ title: "Error", description: "Phone is required.", variant: "destructive" });
         return;
       }
 
-      if (!form.emergencyContact.trim()) {
+      if (form.emergencyNumber.length !== 10) {
         toast({ title: "Error", description: "Emergency contact is required.", variant: "destructive" });
         return;
       }
@@ -205,8 +241,8 @@ function PatientDialog({
       name: form.name,
       age: Number(form.age),
       gender: form.gender,
-      phone: form.phone,
-      emergencyContact: form.emergencyContact,
+      phone: formatPhoneNumber(form.phoneCountryCode, form.phoneNumber),
+      emergencyContact: formatPhoneNumber(form.emergencyCountryCode, form.emergencyNumber),
     };
 
     if (mode === "create") {
@@ -274,8 +310,20 @@ function PatientDialog({
               </SelectContent>
             </Select>
           </div>
-          <SimpleField label="Phone" value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value }))} />
-          <SimpleField label="Emergency Contact" value={form.emergencyContact} onChange={(value) => setForm((current) => ({ ...current, emergencyContact: value }))} />
+          <PhoneField
+            label="Phone"
+            countryCode={form.phoneCountryCode}
+            number={form.phoneNumber}
+            onCountryCodeChange={(value) => setForm((current) => ({ ...current, phoneCountryCode: value }))}
+            onNumberChange={(value) => setForm((current) => ({ ...current, phoneNumber: normalizePhoneNumber(value) }))}
+          />
+          <PhoneField
+            label="Emergency Contact"
+            countryCode={form.emergencyCountryCode}
+            number={form.emergencyNumber}
+            onCountryCodeChange={(value) => setForm((current) => ({ ...current, emergencyCountryCode: value }))}
+            onNumberChange={(value) => setForm((current) => ({ ...current, emergencyNumber: normalizePhoneNumber(value) }))}
+          />
 
           {mode === "create" ? (
             <div className="space-y-4 rounded-xl border border-white/10 bg-background/30 p-4">
@@ -327,6 +375,49 @@ function SimpleField({ label, value, onChange, type = "text", min }: { label: st
     <div className="space-y-2">
       <Label>{label}</Label>
       <Input type={type} min={min} value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
+function PhoneField({
+  label,
+  countryCode,
+  number,
+  onCountryCodeChange,
+  onNumberChange,
+}: {
+  label: string;
+  countryCode: string;
+  number: string;
+  onCountryCodeChange: (value: string) => void;
+  onNumberChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="grid grid-cols-[120px_1fr] gap-3">
+        <Select value={countryCode} onValueChange={onCountryCodeChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Code" />
+          </SelectTrigger>
+          <SelectContent>
+            {countryCodeOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          type="tel"
+          inputMode="numeric"
+          maxLength={10}
+          placeholder="10 digit number"
+          value={number}
+          onChange={(event) => onNumberChange(event.target.value)}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">Enter up to 10 digits.</p>
     </div>
   );
 }

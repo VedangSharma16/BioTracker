@@ -134,14 +134,17 @@ const positiveNumber = (label: string) =>
     message: `${label} must be greater than 0`,
   });
 
+const phoneSchema = z
+  .string()
+  .regex(/^\+\d{1,4}\s\d{10}$/, "Use a valid country code and a 10 digit phone number");
 const patientInputSchema = insertPatientSchema.extend({
   age: z.coerce.number().int().min(0, "Age cannot be negative"),
   gender: z.enum(["Male", "Female", "Other"]),
+  phone: phoneSchema,
+  emergencyContact: phoneSchema,
 });
 
 const patientCreateSchema = patientInputSchema.extend({
-  phone: z.string().min(6, "Phone is required"),
-  emergencyContact: z.string().min(6, "Emergency contact is required"),
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(4, "Password must be at least 4 characters"),
 });
