@@ -294,7 +294,7 @@ function PatientDialog({
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Create Patient" : "Edit Patient"}</DialogTitle>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
           <SimpleField label="Name" value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} />
           <SimpleField label="Age" value={form.age} onChange={(value) => setForm((current) => ({ ...current, age: value }))} type="number" min={0} />
           <div className="space-y-2">
@@ -331,8 +331,27 @@ function PatientDialog({
                 <p className="text-sm font-medium text-foreground">Patient Login</p>
                 <p className="text-xs text-muted-foreground">Username and password are required for every new patient.</p>
               </div>
-              <SimpleField label="Create username" value={form.username} onChange={(value) => setForm((current) => ({ ...current, username: value }))} />
-              <SimpleField label="Create password" value={form.password} onChange={(value) => setForm((current) => ({ ...current, password: value }))} type="password" />
+              <SimpleField
+                label="Create username"
+                name="patient-create-username"
+                autoComplete="off"
+                spellCheck={false}
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={form.username}
+                onChange={(value) => setForm((current) => ({ ...current, username: value }))}
+              />
+              <SimpleField
+                label="Create password"
+                name="patient-create-password"
+                autoComplete="new-password"
+                spellCheck={false}
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={form.password}
+                onChange={(value) => setForm((current) => ({ ...current, password: value }))}
+                type="password"
+              />
             </div>
           ) : null}
 
@@ -370,11 +389,45 @@ function DeletePatientButton({ patientId, patientName }: { patientId: number; pa
   );
 }
 
-function SimpleField({ label, value, onChange, type = "text", min }: { label: string; value: string; onChange: (value: string) => void; type?: string; min?: number }) {
+function SimpleField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  min,
+  name,
+  autoComplete,
+  spellCheck,
+  autoCapitalize,
+  autoCorrect,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  min?: number;
+  name?: string;
+  autoComplete?: string;
+  spellCheck?: boolean;
+  autoCapitalize?: string;
+  autoCorrect?: string;
+}) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input type={type} min={min} value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input
+        type={type}
+        min={min}
+        name={name}
+        autoComplete={autoComplete}
+        spellCheck={spellCheck}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
+        data-lpignore="true"
+        data-1p-ignore="true"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </div>
   );
 }
