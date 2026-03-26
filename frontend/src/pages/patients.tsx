@@ -205,16 +205,16 @@ function PatientDialog({
       name: form.name,
       age: Number(form.age),
       gender: form.gender,
-      phone: form.phone || undefined,
-      emergencyContact: form.emergencyContact || undefined,
+      phone: form.phone,
+      emergencyContact: form.emergencyContact,
     };
 
     if (mode === "create") {
       createPatient(
         {
           ...payload,
-          username: form.username || undefined,
-          password: form.password || undefined,
+          username: form.username,
+          password: form.password,
         },
         {
           onSuccess: () => {

@@ -140,15 +140,11 @@ const patientInputSchema = insertPatientSchema.extend({
 });
 
 const patientCreateSchema = patientInputSchema.extend({
-  username: z.string().min(3, "Username must be at least 3 characters").optional(),
-  password: z.string().min(4, "Password must be at least 4 characters").optional(),
-}).refine(
-  (value) => (!value.username && !value.password) || (Boolean(value.username) && Boolean(value.password)),
-  {
-    message: "Username and password must both be provided to create patient login credentials",
-    path: ["username"],
-  },
-);
+  phone: z.string().min(6, "Phone is required"),
+  emergencyContact: z.string().min(6, "Emergency contact is required"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(4, "Password must be at least 4 characters"),
+});
 
 const doctorInputSchema = insertDoctorSchema.extend({
   name: z.string().min(2, "Doctor name is required"),
@@ -177,6 +173,26 @@ const billInputSchema = insertBillSchema.extend({
   paidAmount: nonNegativeNumber("Paid amount").optional(),
   balanceAmount: nonNegativeNumber("Balance amount").optional(),
   paymentStatus: z.string().optional(),
+}).superRefine((value, ctx) => {
+  const taxAmount = value.taxAmount ?? 0;
+  const discountAmount = value.discountAmount ?? 0;
+  const paidAmount = value.paidAmount ?? 0;
+
+  if (discountAmount > value.subtotal + taxAmount) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountAmount"],
+      message: "Discount amount cannot exceed subtotal plus tax",
+    });
+  }
+
+  if (paidAmount > value.totalAmount) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["paidAmount"],
+      message: "Paid amount cannot be greater than total amount",
+    });
+  }
 });
 
 const paymentMethodSchema = z.enum(["Cash", "Card", "UPI", "Net Banking", "Cheque", "Insurance"]);
@@ -188,9 +204,9 @@ const paymentInputSchema = insertPaymentHistorySchema.extend({
   paymentMethod: paymentMethodSchema,
 });
 
-const billUpdateSchema = billInputSchema.extend({
+const billUpdateSchema = z.object({
   billId: z.coerce.number().int(),
-});
+}).and(billInputSchema);
 
 const paymentUpdateSchema = paymentInputSchema.extend({
   paymentId: z.coerce.number().int(),
