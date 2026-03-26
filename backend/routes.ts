@@ -8,6 +8,7 @@ import { z } from "zod";
 import { api } from "./shared/routes";
 import { storage } from "./storage";
 import { broadcastHealthEvent, setupRealtime } from "./realtime";
+import { generateTemporaryPassword, hashPassword, looksHashed, verifyPassword } from "./password";
 
 const MySQLStoreFactory = expressMySqlSession(session);
 
@@ -66,9 +67,18 @@ export async function registerRoutes(
   passport.use(new LocalStrategy(async (username, password, done) => {
     try {
       const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) {
+      if (!user) {
         return done(null, false, { message: "Invalid username or password" });
       }
+
+      const validPassword = looksHashed(user.password)
+        ? verifyPassword(username, password, user.password)
+        : user.password === password;
+
+      if (!validPassword) {
+        return done(null, false, { message: "Invalid username or password" });
+      }
+
       return done(null, user);
     } catch (error) {
       return done(error);
@@ -241,6 +251,23 @@ export async function registerRoutes(
   app.post(api.patients.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.patients.create.input.parse(req.body);
+
+      if (!input.phone?.trim()) {
+        return res.status(400).json({ message: "Phone is required." });
+      }
+
+      if (!input.emergencyContact?.trim()) {
+        return res.status(400).json({ message: "Emergency contact is required." });
+      }
+
+      if (!input.username?.trim()) {
+        return res.status(400).json({ message: "Username is required." });
+      }
+
+      if (!input.password?.trim()) {
+        return res.status(400).json({ message: "Password is required." });
+      }
+
       const created = await storage.createPatientWithUser(
         {
           name: input.name,
@@ -249,14 +276,21 @@ export async function registerRoutes(
           phone: input.phone,
           emergencyContact: input.emergencyContact,
         },
-        input.username && input.password
-          ? {
+        {
               username: input.username,
-              password: input.password,
-            }
-          : undefined,
+              password: hashPassword(input.username, input.password),
+            },
       );
-      res.status(201).json(created);
+
+      await sendSmsMessage(
+        input.phone,
+        `BioTracker login credentials. Username: ${input.username} Password: ${input.password}`,
+      );
+
+      res.status(201).json({
+        ...created,
+        message: "Patient created. Login credentials sent to the patient.",
+      });
     } catch (error) {
       if (error instanceof Error && error.message.includes("Duplicate entry")) {
         return res.status(400).json({ message: "Username already exists." });
@@ -364,6 +398,14 @@ export async function registerRoutes(
       const input = api.billing.bills.create.input.parse(req.body);
       const totalAmount = input.totalAmount ?? input.subtotal + (input.taxAmount ?? 0) - (input.discountAmount ?? 0);
       const paidAmount = input.paidAmount ?? 0;
+
+      if ((input.discountAmount ?? 0) > input.subtotal + (input.taxAmount ?? 0)) {
+        return res.status(400).json({ message: "Discount amount cannot exceed subtotal plus tax." });
+      }
+
+      if (paidAmount > totalAmount) {
+        return res.status(400).json({ message: "Paid amount cannot be greater than total amount." });
+      }
       const balanceAmount = input.balanceAmount ?? Math.max(totalAmount - paidAmount, 0);
       const paymentStatus = balanceAmount <= 0 ? "paid" : paidAmount > 0 ? "partial" : "pending";
 
@@ -389,6 +431,15 @@ export async function registerRoutes(
         ...req.body,
         billId: Number(req.params.billId),
       });
+
+      if ((input.discountAmount ?? 0) > input.subtotal + (input.taxAmount ?? 0)) {
+        return res.status(400).json({ message: "Discount amount cannot exceed subtotal plus tax." });
+      }
+
+      if ((input.paidAmount ?? 0) > input.totalAmount) {
+        return res.status(400).json({ message: "Paid amount cannot be greater than total amount." });
+      }
+
       const updated = await storage.updateBill(input.billId, {
         billNumber: input.billNumber,
         patientId: input.patientId,
@@ -430,6 +481,17 @@ export async function registerRoutes(
   app.post(api.billing.payments.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.billing.payments.create.input.parse(req.body);
+      const currentBills = await storage.getBills();
+      const targetBill = currentBills.find((bill) => bill.billId === input.billId);
+
+      if (!targetBill) {
+        return res.status(400).json({ message: "Bill not found" });
+      }
+
+      if (input.amountPaid > Number(targetBill.balanceAmount)) {
+        return res.status(400).json({ message: "Paid amount cannot be greater than the remaining bill amount." });
+      }
+
       const created = await storage.createPaymentHistory({
         ...input,
         amountPaid: String(input.amountPaid.toFixed(2)),
@@ -449,6 +511,17 @@ export async function registerRoutes(
         ...req.body,
         paymentId: Number(req.params.paymentId),
       });
+      const currentBills = await storage.getBills();
+      const targetBill = currentBills.find((bill) => bill.billId === input.billId);
+
+      if (!targetBill) {
+        return res.status(400).json({ message: "Bill not found" });
+      }
+
+      if (input.amountPaid > Number(targetBill.totalAmount)) {
+        return res.status(400).json({ message: "Paid amount cannot be greater than the bill amount." });
+      }
+
       const updated = await storage.updatePaymentHistory(input.paymentId, {
         billId: input.billId,
         patientId: input.patientId,

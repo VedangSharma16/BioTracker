@@ -373,15 +373,33 @@ function PrescriptionDialog({
 
   const [patientId, setPatientId] = useState("");
   const [doctorId, setDoctorId] = useState("");
+  const [patientQuery, setPatientQuery] = useState("");
+  const [doctorQuery, setDoctorQuery] = useState("");
   const [medicines, setMedicines] = useState<EditableMedicine[]>([emptyMedicine()]);
 
   const isEditMode = mode === "edit" && prescription;
   const isPending = isCreating || isUpdating;
+  const patientOptions = useMemo(
+    () => (patients ?? []).map((patient) => ({
+      id: String(patient.patientId),
+      label: `${patient.patientId} - ${patient.name}`,
+    })),
+    [patients],
+  );
+  const doctorOptions = useMemo(
+    () => (doctors ?? []).map((doctor) => ({
+      id: String(doctor.doctorId),
+      label: `${doctor.doctorId} - Dr. ${doctor.name} - ${doctor.specialization}`,
+    })),
+    [doctors],
+  );
 
   const resetForm = () => {
     if (isEditMode && prescription) {
       setPatientId(String(prescription.patientId));
       setDoctorId(String(prescription.doctorId));
+      setPatientQuery(`${prescription.patientId} - ${prescription.patientName ?? "Patient"}`);
+      setDoctorQuery(`${prescription.doctorId} - ${prescription.doctorName ?? "Doctor"}`);
       setMedicines(
         prescription.medicines.length > 0
           ? prescription.medicines.map((medicine) => ({
@@ -397,7 +415,23 @@ function PrescriptionDialog({
 
     setPatientId("");
     setDoctorId("");
+    setPatientQuery("");
+    setDoctorQuery("");
     setMedicines([emptyMedicine()]);
+  };
+
+  const handlePatientQueryChange = (value: string) => {
+    setPatientQuery(value);
+    const normalized = value.trim().toLowerCase();
+    const match = patientOptions.find((option) => option.label.toLowerCase() === normalized || option.id === normalized.replace(/^#/, ""));
+    setPatientId(match?.id ?? "");
+  };
+
+  const handleDoctorQueryChange = (value: string) => {
+    setDoctorQuery(value);
+    const normalized = value.trim().toLowerCase();
+    const match = doctorOptions.find((option) => option.label.toLowerCase() === normalized || option.id === normalized.replace(/^#/, ""));
+    setDoctorId(match?.id ?? "");
   };
 
   const addMedicine = () => {
@@ -524,34 +558,36 @@ function PrescriptionDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Patient</Label>
-              <Select value={patientId} onValueChange={setPatientId}>
-                <SelectTrigger className="bg-background/50 border-white/10 focus:ring-primary/20">
-                  <SelectValue placeholder="Select patient" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-white/10">
-                  {patients?.map((patient) => (
-                    <SelectItem key={patient.patientId} value={patient.patientId.toString()}>
-                      {patient.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                list="patient-options"
+                value={patientQuery}
+                onChange={(event) => handlePatientQueryChange(event.target.value)}
+                placeholder="Type patient ID or name"
+                className="bg-background/50 border-white/10 focus:ring-primary/20 text-foreground"
+              />
+              <datalist id="patient-options">
+                {patientOptions.map((patient) => (
+                  <option key={patient.id} value={patient.label} />
+                ))}
+              </datalist>
+              <p className="text-xs text-muted-foreground">Search by patient ID or patient name.</p>
             </div>
 
             <div className="space-y-2">
               <Label>Doctor</Label>
-              <Select value={doctorId} onValueChange={setDoctorId}>
-                <SelectTrigger className="bg-background/50 border-white/10 focus:ring-primary/20">
-                  <SelectValue placeholder="Select doctor" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-white/10">
-                  {doctors?.map((doctor) => (
-                    <SelectItem key={doctor.doctorId} value={doctor.doctorId.toString()}>
-                      Dr. {doctor.name} - {doctor.specialization}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                list="doctor-options"
+                value={doctorQuery}
+                onChange={(event) => handleDoctorQueryChange(event.target.value)}
+                placeholder="Type doctor ID or name"
+                className="bg-background/50 border-white/10 focus:ring-primary/20 text-foreground"
+              />
+              <datalist id="doctor-options">
+                {doctorOptions.map((doctor) => (
+                  <option key={doctor.id} value={doctor.label} />
+                ))}
+              </datalist>
+              <p className="text-xs text-muted-foreground">Search by doctor ID or doctor name.</p>
             </div>
           </div>
 

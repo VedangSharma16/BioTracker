@@ -179,6 +179,28 @@ function PatientDialog({
       return;
     }
 
+    if (mode === "create") {
+      if (!form.phone.trim()) {
+        toast({ title: "Error", description: "Phone is required.", variant: "destructive" });
+        return;
+      }
+
+      if (!form.emergencyContact.trim()) {
+        toast({ title: "Error", description: "Emergency contact is required.", variant: "destructive" });
+        return;
+      }
+
+      if (!form.username.trim()) {
+        toast({ title: "Error", description: "Username is required.", variant: "destructive" });
+        return;
+      }
+
+      if (!form.password.trim()) {
+        toast({ title: "Error", description: "Password is required.", variant: "destructive" });
+        return;
+      }
+    }
+
     const payload = {
       name: form.name,
       age: Number(form.age),
@@ -198,7 +220,7 @@ function PatientDialog({
           onSuccess: () => {
             setOpen(false);
             setForm(emptyForm);
-            toast({ title: "Success", description: "Patient created." });
+            toast({ title: "Success", description: "Patient created. Login credentials sent to the patient." });
           },
           onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
         },
@@ -259,7 +281,7 @@ function PatientDialog({
             <div className="space-y-4 rounded-xl border border-white/10 bg-background/30 p-4">
               <div>
                 <p className="text-sm font-medium text-foreground">Patient Login</p>
-                <p className="text-xs text-muted-foreground">Optional. Leave blank if you do not want to create login credentials now.</p>
+                <p className="text-xs text-muted-foreground">Username and password are required for every new patient.</p>
               </div>
               <SimpleField label="Username" value={form.username} onChange={(value) => setForm((current) => ({ ...current, username: value }))} />
               <SimpleField label="Password" value={form.password} onChange={(value) => setForm((current) => ({ ...current, password: value }))} type="password" />
