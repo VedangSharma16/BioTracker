@@ -91,6 +91,14 @@ export function useDeletePatient() {
           const err = api.patients.delete.responses[400].parse(await res.json());
           throw new Error(err.message);
         }
+        try {
+          const err = await res.json();
+          if (typeof err?.message === "string" && err.message.trim()) {
+            throw new Error(err.message);
+          }
+        } catch {
+          // Fall through to the generic error below when the response body is empty or invalid.
+        }
         throw new Error("Failed to delete patient");
       }
 

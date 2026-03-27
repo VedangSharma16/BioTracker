@@ -33,6 +33,16 @@ const patientHealthViewSchema = z.object({
   notes: z.string().nullable(),
 });
 
+const patientListItemSchema = z.object({
+  patientId: z.number(),
+  name: z.string(),
+  age: z.number(),
+  gender: z.string(),
+  phone: z.string().nullable(),
+  emergencyContact: z.string().nullable(),
+  username: z.string().nullable().optional(),
+});
+
 const pendingAlertViewSchema = z.object({
   alertId: z.number(),
   patientId: z.number(),
@@ -147,6 +157,12 @@ const patientInputSchema = insertPatientSchema.extend({
 const patientCreateSchema = patientInputSchema.extend({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(4, "Password must be at least 4 characters"),
+});
+
+const patientUpdateSchema = patientInputSchema.extend({
+  patientId: z.coerce.number().int(),
+  username: z.string().min(3, "Username must be at least 3 characters").optional(),
+  password: z.string().min(4, "Password must be at least 4 characters").optional(),
 });
 
 const doctorInputSchema = insertDoctorSchema.extend({
@@ -306,7 +322,7 @@ export const api = {
       method: "GET" as const,
       path: "/api/patients" as const,
       responses: {
-        200: z.array(z.custom<typeof patients.$inferSelect>()),
+        200: z.array(patientListItemSchema),
       },
     },
     create: {
@@ -321,11 +337,9 @@ export const api = {
     update: {
       method: "PUT" as const,
       path: "/api/patients/:patientId" as const,
-      input: patientInputSchema.extend({
-        patientId: z.coerce.number().int(),
-      }),
+      input: patientUpdateSchema,
       responses: {
-        200: z.custom<typeof patients.$inferSelect>(),
+        200: patientListItemSchema,
         400: errorSchemas.validation,
       },
     },
@@ -640,4 +654,7 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
+
+
+
 

@@ -73,7 +73,7 @@ export default function Patients() {
     if (!query) return patients ?? [];
 
     return (patients ?? []).filter((patient) =>
-      [patient.patientId, patient.name, patient.gender, patient.phone, patient.emergencyContact]
+      [patient.patientId, patient.name, patient.gender, patient.phone, patient.emergencyContact, patient.username]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
@@ -99,7 +99,7 @@ export default function Patients() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search patients by ID, name, gender, or phone"
+              placeholder="Search patients by ID, name, username, gender, or phone"
               className="pl-9"
             />
           </div>
@@ -168,6 +168,7 @@ function PatientDialog({
     gender: string;
     phone: string | null;
     emergencyContact: string | null;
+    username?: string | null;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -191,7 +192,7 @@ function PatientDialog({
         phoneNumber: phone.localNumber,
         emergencyCountryCode: emergencyContact.countryCode,
         emergencyNumber: emergencyContact.localNumber,
-        username: "",
+        username: patient.username ?? "",
         password: "",
       });
       return;
@@ -237,6 +238,17 @@ function PatientDialog({
       }
     }
 
+    if (mode === "edit" && patient && form.username.trim() !== (patient.username ?? "")) {
+      if (!form.password.trim()) {
+        toast({
+          title: "Error",
+          description: "Enter a new password when changing the username.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const payload = {
       name: form.name,
       age: Number(form.age),
@@ -270,11 +282,13 @@ function PatientDialog({
       {
         patientId: patient.patientId,
         ...payload,
+        username: form.username.trim() || undefined,
+        password: form.password.trim() || undefined,
       },
       {
         onSuccess: () => {
           setOpen(false);
-          toast({ title: "Success", description: "Patient updated." });
+          toast({ title: "Success", description: "Patient and login details updated." });
         },
         onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
       },
@@ -324,36 +338,33 @@ function PatientDialog({
             onCountryCodeChange={(value) => setForm((current) => ({ ...current, emergencyCountryCode: value }))}
             onNumberChange={(value) => setForm((current) => ({ ...current, emergencyNumber: normalizePhoneNumber(value) }))}
           />
-
-          {mode === "create" ? (
-            <div className="space-y-4 rounded-xl border border-white/10 bg-background/30 p-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">Patient Login</p>
-                <p className="text-xs text-muted-foreground">Username and password are required for every new patient.</p>
-              </div>
-              <SimpleField
-                label="Create username"
-                name="patient-create-username"
-                autoComplete="off"
-                spellCheck={false}
-                autoCapitalize="none"
-                autoCorrect="off"
-                value={form.username}
-                onChange={(value) => setForm((current) => ({ ...current, username: value }))}
-              />
-              <SimpleField
-                label="Create password"
-                name="patient-create-password"
-                autoComplete="new-password"
-                spellCheck={false}
-                autoCapitalize="none"
-                autoCorrect="off"
-                value={form.password}
-                onChange={(value) => setForm((current) => ({ ...current, password: value }))}
-                type="password"
-              />
+          <div className="space-y-4 rounded-xl border border-white/10 bg-background/30 p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Patient Login</p>
+              <p className="text-xs text-muted-foreground">Create or update the patient login credentials here.</p>
             </div>
-          ) : null}
+            <SimpleField
+              label="Create username"
+              name={`patient-${mode}-username`}
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={form.username}
+              onChange={(value) => setForm((current) => ({ ...current, username: value }))}
+            />
+            <SimpleField
+              label="Create password"
+              name={`patient-${mode}-password`}
+              autoComplete="new-password"
+              spellCheck={false}
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={form.password}
+              onChange={(value) => setForm((current) => ({ ...current, password: value }))}
+              type="password"
+            />
+          </div>
 
           <Button type="submit" disabled={isPending} className="w-full">{isPending ? "Saving..." : mode === "create" ? "Save Patient" : "Update Patient"}</Button>
         </form>
@@ -474,3 +485,6 @@ function PhoneField({
     </div>
   );
 }
+
+
+

@@ -342,21 +342,31 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.patients.update.path, requireAdmin, async (req, res) => {
+﻿  app.put(api.patients.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.patients.update.input.parse({
         ...req.body,
         patientId: Number(req.params.patientId),
       });
-      const updated = await storage.updatePatient(input.patientId, {
-        name: input.name,
-        age: input.age,
-        gender: input.gender,
-        phone: input.phone,
-        emergencyContact: input.emergencyContact,
-      });
+      const updated = await storage.updatePatient(
+        input.patientId,
+        {
+          name: input.name,
+          age: input.age,
+          gender: input.gender,
+          phone: input.phone,
+          emergencyContact: input.emergencyContact,
+        },
+        {
+          username: input.username,
+          password: input.password,
+        },
+      );
       res.status(200).json(updated);
     } catch (error) {
+      if (error instanceof Error && error.message.includes("Duplicate entry")) {
+        return res.status(400).json({ message: "Username already exists." });
+      }
       return handleZodError(res, error);
     }
   });

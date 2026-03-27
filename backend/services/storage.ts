@@ -48,6 +48,10 @@ type DashboardStats = {
   highestRefillCost: number | null;
 };
 
+type PatientListItem = Patient & {
+  username: string | null;
+};
+
 type PatientPrescriptionView = {
   prescriptionId: number;
   patientId: number;
@@ -238,10 +242,10 @@ export interface IStorage {
   resetFailedLoginAttempts(userId: number): Promise<User>;
   getPatientByPhone(phone: string): Promise<Patient | undefined>;
   getDashboardStats(): Promise<DashboardStats>;
-  getPatients(): Promise<Patient[]>;
+  getPatients(): Promise<PatientListItem[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
   createPatientWithUser(patient: InsertPatient, credentials?: Pick<InsertUser, "username" | "password">): Promise<Patient>;
-  updatePatient(patientId: number, patient: InsertPatient): Promise<Patient>;
+  updatePatient(patientId: number, patient: InsertPatient, credentials?: Partial<Pick<InsertUser, "username" | "password">>): Promise<PatientListItem>;
   deletePatient(patientId: number): Promise<void>;
   getDoctors(): Promise<Doctor[]>;
   createDoctor(doctor: InsertDoctor): Promise<Doctor>;
@@ -401,8 +405,20 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getPatients(): Promise<Patient[]> {
-    return db.select().from(patients).orderBy(patients.name);
+  async getPatients(): Promise<PatientListItem[]> {
+    return db
+      .select({
+        patientId: patients.patientId,
+        name: patients.name,
+        age: patients.age,
+        gender: patients.gender,
+        phone: patients.phone,
+        emergencyContact: patients.emergencyContact,
+        username: users.username,
+      })
+      .from(patients)
+      .leftJoin(users, eq(users.patientId, patients.patientId))
+      .orderBy(patients.name);
   }
 
   async getPatientByPhone(phone: string): Promise<Patient | undefined> {
@@ -438,10 +454,71 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updatePatient(patientId: number, patient: InsertPatient): Promise<Patient> {
-    await db.update(patients).set(patient).where(eq(patients.patientId, patientId));
-    const [updated] = await db.select().from(patients).where(eq(patients.patientId, patientId));
-    return updated;
+﻿  async updatePatient(
+    patientId: number,
+    patient: InsertPatient,
+    credentials?: Partial<Pick<InsertUser, "username" | "password">>,
+  ): Promise<PatientListItem> {
+    return db.transaction(async (tx) => {
+      await tx.update(patients).set(patient).where(eq(patients.patientId, patientId));
+
+      const [existingUser] = await tx.select().from(users).where(eq(users.patientId, patientId));
+      const nextUsername = credentials?.username?.trim();
+      const nextPassword = credentials?.password?.trim();
+
+      if (existingUser) {
+        if (nextUsername && nextUsername !== existingUser.username && !nextPassword) {
+          throw new Error("Enter a new password when changing the username.");
+        }
+
+        if (nextUsername || nextPassword) {
+          const finalUsername = nextUsername || existingUser.username;
+          const updates: Partial<InsertUser> & {
+            failedLoginAttempts?: number;
+            lockedAt?: Date | null;
+          } = {};
+
+          if (nextUsername) {
+            updates.username = nextUsername;
+          }
+
+          if (nextPassword) {
+            updates.password = hashPassword(finalUsername, nextPassword);
+            updates.failedLoginAttempts = 0;
+            updates.lockedAt = null;
+          }
+
+          await tx.update(users).set(updates).where(eq(users.userId, existingUser.userId));
+        }
+      } else if (nextUsername || nextPassword) {
+        if (!nextUsername || !nextPassword) {
+          throw new Error("Username and password are both required to create patient login access.");
+        }
+
+        await tx.insert(users).values({
+          username: nextUsername,
+          password: hashPassword(nextUsername, nextPassword),
+          role: "patient",
+          patientId,
+        });
+      }
+
+      const [updated] = await tx
+        .select({
+          patientId: patients.patientId,
+          name: patients.name,
+          age: patients.age,
+          gender: patients.gender,
+          phone: patients.phone,
+          emergencyContact: patients.emergencyContact,
+          username: users.username,
+        })
+        .from(patients)
+        .leftJoin(users, eq(users.patientId, patients.patientId))
+        .where(eq(patients.patientId, patientId));
+
+      return updated;
+    });
   }
 
   async deletePatient(patientId: number): Promise<void> {
