@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 import {
   alerts,
   bills,
@@ -231,6 +231,8 @@ export const errorSchemas = {
   }),
   unauthorized: z.object({
     message: z.string(),
+    attemptsLeft: z.number().int().min(0).optional(),
+    locked: z.boolean().optional(),
   }),
 };
 

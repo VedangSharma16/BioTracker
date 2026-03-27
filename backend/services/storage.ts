@@ -1,5 +1,6 @@
-﻿import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../config/db";
+import { hashPassword } from "../security/password";
 import {
   alerts,
   bills,
@@ -232,6 +233,9 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByPatientId(patientId: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(userId: number, password: string): Promise<User>;
+  recordFailedLoginAttempt(userId: number): Promise<User>;
+  resetFailedLoginAttempts(userId: number): Promise<User>;
   getPatientByPhone(phone: string): Promise<Patient | undefined>;
   getDashboardStats(): Promise<DashboardStats>;
   getPatients(): Promise<Patient[]>;
@@ -298,6 +302,32 @@ export class DatabaseStorage implements IStorage {
       const [created] = await tx.select().from(users).where(eq(users.userId, userId));
       return created;
     });
+  }
+
+  async updateUserPassword(userId: number, password: string): Promise<User> {
+    await db.update(users).set({ password, failedLoginAttempts: 0, lockedAt: null }).where(eq(users.userId, userId));
+    const [updated] = await db.select().from(users).where(eq(users.userId, userId));
+    return updated;
+  }
+
+  async recordFailedLoginAttempt(userId: number): Promise<User> {
+    const [current] = await db.select().from(users).where(eq(users.userId, userId));
+    if (!current) {
+      throw new Error("User not found");
+    }
+
+    const nextAttempts = (current.failedLoginAttempts ?? 0) + 1;
+    const shouldLock = nextAttempts >= 5;
+
+    await db.update(users).set({ failedLoginAttempts: nextAttempts, lockedAt: shouldLock ? new Date() : current.lockedAt ?? null }).where(eq(users.userId, userId));
+    const [updated] = await db.select().from(users).where(eq(users.userId, userId));
+    return updated;
+  }
+
+  async resetFailedLoginAttempts(userId: number): Promise<User> {
+    await db.update(users).set({ failedLoginAttempts: 0, lockedAt: null }).where(eq(users.userId, userId));
+    const [updated] = await db.select().from(users).where(eq(users.userId, userId));
+    return updated;
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
@@ -885,8 +915,8 @@ export class DatabaseStorage implements IStorage {
       name: "Vedang Sharma",
       age: 19,
       gender: "Male",
-      phone: "8103385262",
-      emergencyContact: "7987223055",
+      phone: "+91 8103385262",
+      emergencyContact: "+91 7987223055",
     });
     const vedangId = await getLastInsertId(db);
 
@@ -894,29 +924,29 @@ export class DatabaseStorage implements IStorage {
       name: "Sunita Sharma",
       age: 52,
       gender: "Female",
-      phone: "7987223055",
-      emergencyContact: "8103385262",
+      phone: "+91 7987223055",
+      emergencyContact: "+91 8103385262",
     });
     const sunitaId = await getLastInsertId(db);
 
     await db.insert(doctors).values({
       name: "Dr. Mehta",
       specialization: "Cardiologist",
-      contact: "9988776655",
+      contact: "+91 9988776655",
     });
     const mehtaId = await getLastInsertId(db);
 
     await db.insert(doctors).values({
       name: "Dr. Rao",
       specialization: "Diabetologist",
-      contact: "9977665544",
+      contact: "+91 9977665544",
     });
     const raoId = await getLastInsertId(db);
 
     await db.insert(users).values([
-      { username: "admin", password: "admin123", role: "admin" },
-      { username: "vedang_user", password: "pass123", role: "patient", patientId: vedangId },
-      { username: "sunita_user", password: "pass456", role: "patient", patientId: sunitaId },
+      { username: "admin", password: hashPassword("admin", "admin123"), role: "admin" },
+      { username: "vedang_user", password: hashPassword("vedang_user", "pass123"), role: "patient", patientId: vedangId },
+      { username: "sunita_user", password: hashPassword("sunita_user", "pass456"), role: "patient", patientId: sunitaId },
     ]);
 
     await db.insert(prescriptions).values({

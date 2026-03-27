@@ -107,8 +107,8 @@ export default function Login() {
         title: "Recovery complete",
         description:
           data.deliveryMode === "sms"
-            ? "Username and password were sent to the registered phone number."
-            : "Testing mode is active. Open /api/dev/mock-sms to see the account details message.",
+            ? "Username and a temporary password were sent to the registered phone number."
+            : "Testing mode is active. Open /api/dev/mock-sms to see the temporary password message.",
       });
       setRecoveryOpen(false);
       setRecoveryPhone("");

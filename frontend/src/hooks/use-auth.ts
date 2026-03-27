@@ -31,7 +31,10 @@ export function useLogin() {
       });
       
       if (!res.ok) {
-        if (res.status === 401) throw new Error("Invalid username or password");
+        if (res.status === 401) {
+          const error = api.auth.login.responses[401].parse(await res.json());
+          throw new Error(error.message);
+        }
         throw new Error("Failed to log in");
       }
       return api.auth.login.responses[200].parse(await res.json());

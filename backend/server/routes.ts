@@ -1,4 +1,4 @@
-﻿import type { Express, NextFunction, Request, Response } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import type { Server } from "http";
 import expressMySqlSession from "express-mysql-session";
 import session from "express-session";
@@ -153,8 +153,40 @@ export async function registerRoutes(
     return "sms";
   };
 
-  app.post(api.auth.login.path, passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+  app.post(api.auth.login.path, async (req, res, next) => {
+    try {
+      const credentials = api.auth.login.input.parse(req.body);
+      const user = await storage.getUserByUsername(credentials.username);
+
+      if (!user) {
+        return res.status(401).json({ message: "Invalid username or password." });
+      }
+
+
+      if (user.lockedAt) {
+        return res.status(401).json({ message: "Too many failed login attempts. Please contact admin.", attemptsLeft: 0, locked: true });
+      }
+
+      const validPassword = verifyPassword(credentials.username, credentials.password, user.password);
+
+      if (!validPassword) {
+        const updatedUser = await storage.recordFailedLoginAttempt(user.userId);
+        const attemptsLeft = Math.max(5 - updatedUser.failedLoginAttempts, 0);
+        return res.status(401).json(updatedUser.lockedAt
+          ? { message: "Too many failed login attempts. Please contact admin.", attemptsLeft: 0, locked: true }
+          : { message: `Invalid username or password. ${attemptsLeft} attempt${attemptsLeft === 1 ? "" : "s"} left.`, attemptsLeft, locked: false });
+      }
+
+      const normalizedUser = looksHashed(user.password) ? user : await storage.updateUserPassword(user.userId, hashPassword(credentials.username, credentials.password));
+      const authenticatedUser = normalizedUser.failedLoginAttempts > 0 || normalizedUser.lockedAt ? await storage.resetFailedLoginAttempts(normalizedUser.userId) : normalizedUser;
+
+      req.logIn(authenticatedUser, (error) => {
+        if (error) return next(error);
+        return res.status(200).json(authenticatedUser);
+      });
+    } catch (error) {
+      return handleZodError(res, error);
+    }
   });
 
   app.post(api.auth.logout.path, (req, res, next) => {
@@ -224,9 +256,20 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Unable to recover account details." });
       }
 
+      if (linkedUser.lockedAt) {
+        recoverySessions.delete(input.phone);
+        return res.status(400).json({ message: "Account is locked. Please contact admin." });
+      }
+
+      const temporaryPassword = generateTemporaryPassword();
+      await storage.updateUserPassword(
+        linkedUser.userId,
+        hashPassword(linkedUser.username, temporaryPassword),
+      );
+
       const deliveryMode = await sendSmsMessage(
         patient.phone,
-        `BioTracker account details. Username: ${linkedUser.username} Password: ${linkedUser.password}`,
+        `BioTracker account recovery. Username: ${linkedUser.username} Temporary password: ${temporaryPassword}`,
       );
 
       recoverySessions.delete(input.phone);

@@ -28,7 +28,9 @@ export const doctors = mysqlTable("doctor", {
 export const users = mysqlTable("users", {
   userId: int("user_id").autoincrement().primaryKey(),
   username: varchar("username", { length: 100 }).notNull().unique(),
-  password: varchar("password", { length: 50 }).notNull(),
+  password: varchar("password", { length: 255 }).notNull(),
+  failedLoginAttempts: int("failed_login_attempts").notNull().default(0),
+  lockedAt: timestamp("locked_at"),
   role: text("role").notNull(),
   patientId: int("patient_id").references(() => patients.patientId),
 });
@@ -141,3 +143,4 @@ export type InsertMedicine = z.infer<typeof insertMedicineSchema>;
 export type InsertBill = z.infer<typeof insertBillSchema>;
 export type InsertPaymentHistory = z.infer<typeof insertPaymentHistorySchema>;
 export type InsertAlert = z.infer<typeof insertAlertSchema>;
+
