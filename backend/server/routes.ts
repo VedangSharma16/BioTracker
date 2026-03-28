@@ -26,6 +26,27 @@ export async function registerRoutes(
   const getScopedPatientId = (user: any) =>
     getRole(user) === "patient" ? user.patientId : undefined;
 
+  const resolveScopedPatientId = async (user: any) => {
+    const scopedPatientId = getScopedPatientId(user);
+
+    if (typeof scopedPatientId === "number" && Number.isFinite(scopedPatientId)) {
+      return scopedPatientId;
+    }
+
+    if (getRole(user) !== "patient") {
+      return undefined;
+    }
+
+    if (typeof user?.userId === "number" && Number.isFinite(user.userId)) {
+      const freshUser = await storage.getUser(user.userId);
+      if (typeof freshUser?.patientId === "number" && Number.isFinite(freshUser.patientId)) {
+        return freshUser.patientId;
+      }
+    }
+
+    return null;
+  };
+
   const isProduction = process.env.NODE_ENV === "production";
 
   if (isProduction && !process.env.SESSION_SECRET) {
@@ -652,8 +673,13 @@ export async function registerRoutes(
   });
 
   app.get(api.alerts.list.path, requireAuth, async (req, res) => {
-    const patientId = getScopedPatientId(req.user);
-    res.status(200).json(await storage.getAlerts(patientId));
+    const patientId = await resolveScopedPatientId(req.user);
+
+    if (getRole(req.user) === "patient" && patientId == null) {
+      return res.status(403).json({ message: "Patient account is not linked to a patient profile." });
+    }
+
+    res.status(200).json(await storage.getAlerts(patientId ?? undefined));
   });
 
   app.get("/api/alerts/update-status", requireAdmin, async (req, res) => {

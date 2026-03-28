@@ -24,16 +24,26 @@ export default function Alerts() {
   const [search, setSearch] = useState("");
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
+  const visibleAlerts = useMemo(() => {
+    const allAlerts = alerts ?? [];
+
+    if (isAdmin || !user?.patientId) {
+      return allAlerts;
+    }
+
+    return allAlerts.filter((alert) => alert.patientId === user.patientId);
+  }, [alerts, isAdmin, user?.patientId]);
+
   const filteredAlerts = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return alerts ?? [];
+    if (!query) return visibleAlerts;
 
-    return (alerts ?? []).filter((alert) =>
+    return visibleAlerts.filter((alert) =>
       [alert.patientName, alert.alertType, alert.alertMessage, alert.status]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
-  }, [alerts, search]);
+  }, [search, visibleAlerts]);
 
   const handleStatusChange = (alertId: number, status: "resolved" | "suppressed") => {
     updateAlertStatus(
