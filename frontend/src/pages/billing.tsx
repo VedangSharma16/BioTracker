@@ -99,7 +99,7 @@ export default function Billing() {
         </TabsList>
 
         <TabsContent value="bills" className="space-y-4">
-          <SearchField value={billSearch} onChange={setBillSearch} placeholder="Search bills by patient, doctor, bill number, or status" />
+          <SearchField value={billSearch} onChange={setBillSearch} placeholder={isAdmin ? "Search bills by patient, doctor, bill number, or status" : "Search bills by doctor, bill number, or status"} />
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/80">
             <Table>
               <TableHeader className="bg-white/5">
@@ -157,7 +157,7 @@ export default function Billing() {
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-4">
-          <SearchField value={paymentSearch} onChange={setPaymentSearch} placeholder="Search payments by patient, bill, or payment method" />
+          <SearchField value={paymentSearch} onChange={setPaymentSearch} placeholder={isAdmin ? "Search payments by patient, bill, or payment method" : "Search payments by bill or payment method"} />
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/80">
             <Table>
               <TableHeader className="bg-white/5">

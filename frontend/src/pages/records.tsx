@@ -70,7 +70,7 @@ export default function Records() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search records by patient or metric"
+              placeholder={isAdmin ? "Search records by patient or metric" : "Search records by date, note, or metric"}
               className="pl-9"
             />
           </div>

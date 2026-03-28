@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   ChevronDown,
@@ -69,6 +69,16 @@ const emptyMedicine = (): EditableMedicine => ({
   refillIntervalDays: "",
 });
 
+function formatDoctorName(name?: string | null, doctorId?: number) {
+  const trimmed = name?.trim();
+
+  if (!trimmed) {
+    return doctorId ? `Doctor #${doctorId}` : "Doctor";
+  }
+
+  return /^dr\.?\s+/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
+}
+
 export default function Prescriptions() {
   const { data: prescriptions, isLoading } = usePrescriptions();
   const { data: user } = useUser();
@@ -81,7 +91,7 @@ export default function Prescriptions() {
 
     for (const prescription of prescriptions ?? []) {
       const existing = grouped.get(prescription.patientId);
-      const doctorLabel = prescription.doctorName || `Dr. ${prescription.doctorId}`;
+      const doctorLabel = formatDoctorName(prescription.doctorName, prescription.doctorId);
 
       if (!existing) {
         grouped.set(prescription.patientId, {
@@ -174,7 +184,7 @@ export default function Prescriptions() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search patients, doctors, or medicines"
+              placeholder={isAdmin ? "Search patients, doctors, or medicines" : "Search doctors or medicines"}
               className="pl-9 text-foreground"
             />
           </div>
@@ -293,7 +303,7 @@ export default function Prescriptions() {
                             >
                               <div>
                                 <p className="font-medium text-foreground">
-                                  {prescription.doctorName || `Doctor #${prescription.doctorId}`}
+                                  {formatDoctorName(prescription.doctorName, prescription.doctorId)}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   {format(new Date(prescription.prescriptionDate), "MMMM d, yyyy")} -{" "}
@@ -389,7 +399,7 @@ function PrescriptionDialog({
   const doctorOptions = useMemo(
     () => (doctors ?? []).map((doctor) => ({
       id: String(doctor.doctorId),
-      label: `${doctor.doctorId} - Dr. ${doctor.name} - ${doctor.specialization}`,
+      label: `${doctor.doctorId} - ${formatDoctorName(doctor.name)} - ${doctor.specialization}`,
     })),
     [doctors],
   );
@@ -399,7 +409,7 @@ function PrescriptionDialog({
       setPatientId(String(prescription.patientId));
       setDoctorId(String(prescription.doctorId));
       setPatientQuery(`${prescription.patientId} - ${prescription.patientName ?? "Patient"}`);
-      setDoctorQuery(`${prescription.doctorId} - ${prescription.doctorName ?? "Doctor"}`);
+      setDoctorQuery(`${prescription.doctorId} - ${formatDoctorName(prescription.doctorName, prescription.doctorId)}`);
       setMedicines(
         prescription.medicines.length > 0
           ? prescription.medicines.map((medicine) => ({

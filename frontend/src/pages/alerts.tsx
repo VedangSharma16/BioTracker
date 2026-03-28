@@ -67,7 +67,7 @@ export default function Alerts() {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search alerts, patients, or status"
+            placeholder={isAdmin ? "Search alerts, patients, or status" : "Search alerts by type, message, or status"}
             className="pl-9"
           />
         </div>
